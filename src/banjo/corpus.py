@@ -23,7 +23,7 @@ from banjo.midi_writer import (
     generate,
 )
 
-DEFAULT_OUTPUT_DIR = Path("/Users/david/Github/banjo/output")
+DEFAULT_OUTPUT_DIR = Path.cwd() / "output"
 
 
 def _basic_ii_v_i_major() -> GenerationRequest:

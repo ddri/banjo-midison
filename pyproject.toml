@@ -2,6 +2,7 @@
 name = "banjo"
 version = "0.1.0"
 description = "MIDI chord progression generator from Roman numeral analysis."
+license = {text = "MIT"}
 requires-python = ">=3.11"
 dependencies = [
     "mido>=1.3.0",

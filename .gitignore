@@ -3,7 +3,7 @@ output/
 *.mid
 *.md
 !README.md
-!docs/**/*.md
+!LICENSE
 
 # Python
 __pycache__/

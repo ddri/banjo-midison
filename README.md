@@ -2,14 +2,14 @@
 
 MIDI chord progression generator from Roman numeral analysis. Named after Banjo Paterson.
 
-Phase 1: theory layer + test corpus. No MCP server yet — this phase exists to validate that the music theory engine produces musically correct output before any LLM plumbing is added.
+MIDI chord progression generator as an MCP server. Named after Banjo Paterson, the poet.
 
 ## Setup
 
 ```bash
-cd /Users/david/Github/banjo
-uv venv
-source .venv/bin/activate
+git clone https://github.com/ddri/banjo.git
+cd banjo
+uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
 ```
 
@@ -19,7 +19,7 @@ uv pip install -e ".[dev]"
 pytest
 ```
 
-54 tests covering the parser, chord builder, voicings, and MIDI writer.
+76 tests covering the parser, chord builder, voicings, MIDI writer, config, and MCP server.
 
 ## Generate the audition corpus
 
@@ -99,16 +99,14 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "banjo": {
-      "command": "/Users/david/Github/banjo/.venv/bin/banjo-mcp"
+      "command": "/absolute/path/to/banjo/.venv/bin/banjo-mcp"
     }
   }
 }
 ```
 
-Restart Claude Desktop. The two tools should appear in the tools picker.
-
-> **Note:** The command path points at the project's `.venv`. If you move the
-> repo or recreate the venv, update this path accordingly.
+Replace the path with the absolute path to your clone's `.venv`. Then
+restart Claude Desktop — the two tools should appear in the tools picker.
 
 ### Logs
 
@@ -130,7 +128,7 @@ new chat does not reload tool definitions.
 
 Files land in `~/Music/banjo/` by default. Change it from inside Claude Desktop:
 
-> "Set the banjo output directory to /Users/david/Music/Ableton/banjo-clips"
+> "Set the banjo output directory to ~/Music/Ableton/banjo-clips"
 
 That call writes the path to `~/.banjo/config.json` and persists across
 restarts.
