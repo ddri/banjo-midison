@@ -21,6 +21,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 from banjo import config
+from banjo.theory import MODE_INTERVALS
 
 logger = logging.getLogger("banjo.mcp")
 
@@ -30,6 +31,136 @@ server: Server = Server("banjo")
 # ---------------------------------------------------------------------------
 # Tool schemas
 # ---------------------------------------------------------------------------
+
+GENERATE_MIDI_PROGRESSION_SCHEMA = {
+    "type": "object",
+    "required": ["key_center", "scale_type", "bpm", "chords"],
+    "properties": {
+        "key_center": {
+            "type": "string",
+            "description": "Tonic note name. Examples: 'C', 'F#', 'Bb', 'Eb'.",
+        },
+        "scale_type": {
+            "type": "string",
+            "enum": sorted(MODE_INTERVALS.keys()),
+            "description": "Mode/scale of the key.",
+        },
+        "bpm": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 999,
+            "description": "Tempo in beats per minute.",
+        },
+        "chords": {
+            "type": "array",
+            "minItems": 1,
+            "description": (
+                "Ordered list of chords. Each chord is a Roman numeral plus "
+                "duration in beats. See the README for the supported numeral grammar."
+            ),
+            "items": {
+                "type": "object",
+                "required": ["numeral", "duration_beats"],
+                "properties": {
+                    "numeral": {
+                        "type": "string",
+                        "description": (
+                            "Roman numeral with optional extensions/alterations/inversions. "
+                            "Examples: 'I', 'ii7', 'V13', 'V7b9', 'V7/vi', 'iiø', 'bVII', "
+                            "'vii°', 'III+', 'V64'."
+                        ),
+                    },
+                    "duration_beats": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "description": "Duration of this chord in beats.",
+                    },
+                    "inversion": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 3,
+                        "description": (
+                            "Override inversion. 0 = root, 1 = first, 2 = second, "
+                            "3 = third (only valid for seventh chords). Optional — if "
+                            "the numeral itself encodes an inversion (e.g. 'V64'), "
+                            "omit this."
+                        ),
+                    },
+                    "voicing": {
+                        "type": "string",
+                        "enum": ["close", "drop2", "drop3", "drop2and4", "spread", "rootless"],
+                        "default": "close",
+                        "description": (
+                            "Voicing transformation. 'close' = stack of thirds. "
+                            "'drop2' = 2nd-from-top dropped an octave (jazz piano staple). "
+                            "'rootless' = omit root (pianist's left-hand voicing when "
+                            "a bassist plays the root). 'spread' = wide voicing for "
+                            "piano LH/RH separation."
+                        ),
+                    },
+                },
+            },
+        },
+        "octave": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9,
+            "default": 4,
+            "description": "Octave for the root note. 4 = middle-C octave (C4).",
+        },
+        "time_signature": {
+            "type": "string",
+            "default": "4/4",
+            "description": "Time signature as 'N/D'. Examples: '4/4', '3/4', '6/8'.",
+        },
+        "humanize": {
+            "type": "object",
+            "description": "Optional velocity/timing humanization for a played-in feel.",
+            "properties": {
+                "velocity_range": {
+                    "type": "integer", "minimum": 0, "maximum": 127, "default": 0,
+                    "description": "Max +/- deviation from base_velocity per note.",
+                },
+                "timing_ms": {
+                    "type": "integer", "minimum": 0, "default": 0,
+                    "description": "Max +/- timing deviation per note in milliseconds.",
+                },
+                "base_velocity": {
+                    "type": "integer", "minimum": 1, "maximum": 127, "default": 80,
+                    "description": "Center velocity. 80 is a comfortable mezzo-forte default.",
+                },
+            },
+        },
+        "seed": {
+            "type": "integer",
+            "description": (
+                "Random seed for reproducible humanization. Omit for non-deterministic. "
+                "Always set this when iterating on a request — same seed = same MIDI bytes."
+            ),
+        },
+        "filename": {
+            "type": "string",
+            "description": (
+                "Output filename without the .mid extension. Auto-generated from "
+                "key + progression + timestamp if omitted."
+            ),
+        },
+        "prompt_context": {
+            "type": "string",
+            "description": (
+                "Free-text description of what the user asked for. Written verbatim "
+                "into the .md sidecar so the file is self-documenting in a DAW project."
+            ),
+        },
+        "generation_notes": {
+            "type": "string",
+            "description": (
+                "Free-text musical/harmonic notes about the choices made (voicing rationale, "
+                "stylistic references, etc). Written verbatim into the .md sidecar."
+            ),
+        },
+    },
+}
 
 SET_OUTPUT_DIRECTORY_SCHEMA = {
     "type": "object",
@@ -51,8 +182,16 @@ async def list_tools() -> list[Tool]:
     return [
         Tool(
             name="generate_midi_progression",
-            description="(stub — implemented in next task)",
-            inputSchema={"type": "object"},
+            description=(
+                "Generate a MIDI file from a Roman numeral chord progression. "
+                "Returns the MIDI file path, sidecar markdown path, resolved chord "
+                "metadata (per-chord pitches, voicing, inversion), and total duration. "
+                "Use this whenever the user wants a chord progression rendered as a MIDI "
+                "clip suitable for dragging into a DAW. The generator handles secondary "
+                "dominants, modal mixture, half-diminished chords, alterations, and "
+                "six voicing styles — see the inputSchema for the full grammar."
+            ),
+            inputSchema=GENERATE_MIDI_PROGRESSION_SCHEMA,
         ),
         Tool(
             name="set_output_directory",
