@@ -21,6 +21,12 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 from banjo import config
+from banjo.midi_writer import (
+    ChordSpec,
+    GenerationRequest,
+    HumanizeSpec,
+    generate,
+)
 from banjo.theory import MODE_INTERVALS
 
 logger = logging.getLogger("banjo.mcp")
@@ -224,6 +230,68 @@ def handle_set_output_directory(arguments: dict) -> dict:
     return {"output_directory": str(resolved)}
 
 
+def handle_generate_midi_progression(arguments: dict) -> dict:
+    """Validate args, build a GenerationRequest, generate the MIDI file, return payload."""
+    request = _build_generation_request(arguments)
+    output_dir = config.get_output_directory()
+    result = generate(request, output_dir)
+    logger.info(
+        "generated %s (%d chords, %.1f beats) in %s",
+        result.filepath.name, len(result.resolved), result.total_beats, output_dir,
+    )
+    return {
+        "filepath": str(result.filepath),
+        "sidecar_path": str(result.sidecar_path),
+        "resolved": result.resolved,
+        "total_beats": result.total_beats,
+    }
+
+
+def _build_generation_request(arguments: dict) -> GenerationRequest:
+    """Translate the MCP arguments dict into a GenerationRequest dataclass."""
+    for required in ("key_center", "scale_type", "bpm", "chords"):
+        if required not in arguments:
+            raise ValueError(f"Missing required argument: {required}")
+
+    chords_raw = arguments["chords"]
+    if not isinstance(chords_raw, list) or not chords_raw:
+        raise ValueError("chords must be a non-empty list")
+
+    chord_specs: list[ChordSpec] = []
+    for i, c in enumerate(chords_raw):
+        if not isinstance(c, dict):
+            raise ValueError(f"chords[{i}] must be an object")
+        if "numeral" not in c or "duration_beats" not in c:
+            raise ValueError(f"chords[{i}] requires 'numeral' and 'duration_beats'")
+        chord_specs.append(ChordSpec(
+            numeral=c["numeral"],
+            duration_beats=float(c["duration_beats"]),
+            inversion=c.get("inversion"),
+            voicing=c.get("voicing", "close"),
+        ))
+
+    humanize_raw = arguments.get("humanize") or {}
+    humanize = HumanizeSpec(
+        velocity_range=int(humanize_raw.get("velocity_range", 0)),
+        timing_ms=int(humanize_raw.get("timing_ms", 0)),
+        base_velocity=int(humanize_raw.get("base_velocity", 80)),
+    )
+
+    return GenerationRequest(
+        key_center=arguments["key_center"],
+        scale_type=arguments["scale_type"],
+        bpm=int(arguments["bpm"]),
+        chords=chord_specs,
+        octave=int(arguments.get("octave", 4)),
+        time_signature=arguments.get("time_signature", "4/4"),
+        humanize=humanize,
+        seed=arguments.get("seed"),
+        filename=arguments.get("filename"),
+        prompt_context=arguments.get("prompt_context"),
+        generation_notes=arguments.get("generation_notes"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # MCP dispatcher
 # ---------------------------------------------------------------------------
@@ -231,7 +299,9 @@ def handle_set_output_directory(arguments: dict) -> dict:
 @server.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     logger.info("tool call: %s args=%s", name, list(arguments.keys()))
-    if name == "set_output_directory":
+    if name == "generate_midi_progression":
+        result = handle_generate_midi_progression(arguments)
+    elif name == "set_output_directory":
         result = handle_set_output_directory(arguments)
     else:
         raise ValueError(f"Unknown tool: {name}")
