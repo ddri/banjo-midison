@@ -1,6 +1,10 @@
 # Banjo Midison
 
-MIDI chord progression generator as an MCP server. Named after Banjo Paterson, the poet.
+Banjo Midison is a MIDI chord composition tool for songwriters and producers. It allows you to chat with your choice of AI model about chord progressions and harmonic compositions, and have it generate MIDI files for you to use in your Digital Audio Workstation (DAW). 
+
+It is not a DAW, nor is it a plugin. It is a standalone application that runs in the background and communicates with your MCP-compatible AI assistant via the Model Context Protocol (MCP). 
+
+The idea is not to magically make cookie-cutter AI music, but to use AI as a collaborator to allow a songwriter to talk through chord ideas, progressions, and harmonic concepts with an AI assistant, and have it generate MIDI files (as well as a document of related concepts and chord charts) as part of the creative process.
 
 ## Setup
 
@@ -142,3 +146,12 @@ Files land in `~/Music/banjo/` by default. Change it via the
 
 That call writes the path to `~/.banjo/config.json` and persists across
 restarts.
+
+### About the author
+
+The project was created by David Ryan, from the Australian production duo Trovaire, and was created on some downtime during sessions for the act's second album, recoding in their studio set on a sprawling 700 acres of forests and farmland in regional Tenterfield, Australia.
+
+The origin wasn't as a writing tool, but as an assistant for analysis, where the duo's interest in digging for obscure Italian film scores and Library Music, led to discussions (and debate) around the harmonic language that made those records so compelling. And, at times, very strange.
+
+If you find this useful, say hello, be sure to share any music you make with it.
+
