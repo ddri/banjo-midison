@@ -76,6 +76,58 @@ Supported:
 - Inversions via figured-bass shorthand: `V6` (first), `V64` (second), `V42` (third of seventh chord)
 - Inversions also settable explicitly via `ChordSpec.inversion`
 
-## Phase 2 (next)
+## Phase 2: MCP server
 
-Wrap this in an MCP server (stdio transport) and register it with Claude Desktop. The tool surface will be `generate_midi_progression` and `set_output_directory`. No architectural changes — Phase 1 is the engine, Phase 2 is the LLM-facing handle.
+`banjo-mcp` is a stdio-transport MCP server that exposes the generator to any
+MCP host (Claude Desktop, Continue, etc).
+
+### Tools
+
+- **`generate_midi_progression`** — render a Roman numeral progression to MIDI.
+  Required: `key_center`, `scale_type`, `bpm`, `chords`. Optional: `octave`,
+  `time_signature`, `humanize`, `seed`, `filename`, `prompt_context`,
+  `generation_notes`. Returns `{filepath, sidecar_path, resolved, total_beats}`.
+
+- **`set_output_directory`** — persist the output directory to
+  `~/.banjo/config.json`. Default is `~/Music/banjo/`, created on first write.
+
+### Claude Desktop config
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "banjo": {
+      "command": "/Users/david/Github/banjo/.venv/bin/banjo-mcp"
+    }
+  }
+}
+```
+
+Restart Claude Desktop. The two tools should appear in the tools picker.
+
+### Logs
+
+Server logs go to stderr at `INFO` level. To inspect them while developing:
+
+```bash
+.venv/bin/banjo-mcp 2> /tmp/banjo-mcp.log
+# (in another shell) tail -f /tmp/banjo-mcp.log
+```
+
+### After schema changes
+
+Claude Desktop caches tool schemas at startup. If you add a tool, change a
+field, or rename anything in `inputSchema`, **fully quit and relaunch
+Claude Desktop** (Cmd+Q, not just close window). Refreshing or starting a
+new chat does not reload tool definitions.
+
+### Output directory
+
+Files land in `~/Music/banjo/` by default. Change it from inside Claude Desktop:
+
+> "Set the banjo output directory to /Users/david/Music/Ableton/banjo-clips"
+
+That call writes the path to `~/.banjo/config.json` and persists across
+restarts.
