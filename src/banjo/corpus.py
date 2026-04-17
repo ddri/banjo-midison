@@ -2,13 +2,12 @@
 Test corpus generator.
 
 Produces a curated set of .mid files that exercise the theory layer across
-genres, modes, and harmonic devices. Drag the output into Ableton and
-audition each file to verify the generator sounds correct before any MCP
-plumbing is added.
+genres, modes, and harmonic devices. Drag the output into your DAW and
+audition each file to verify the generator sounds correct.
 
 Usage:
-    python -m banjo.corpus
-    python -m banjo.corpus --output-dir /custom/path
+    banjo-corpus
+    banjo-corpus --output-dir /custom/path
 """
 
 from __future__ import annotations
@@ -326,7 +325,7 @@ def main() -> None:
         print(f"  ✓ {result.filepath.name}  ({len(result.resolved)} chords, {result.total_beats} beats)")
 
     print(f"\nDone. {len(CORPUS)} files written.")
-    print("Drag them into Ableton and audition each one to validate the theory layer.")
+    print("Drag them into your DAW and audition each one to validate the theory layer.")
 
 
 if __name__ == "__main__":
