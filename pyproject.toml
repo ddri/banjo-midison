@@ -1,10 +1,11 @@
 [project]
 name = "banjo"
 version = "0.1.0"
-description = "MIDI chord progression generator from Roman numeral analysis. Phase 1: theory layer + test corpus."
+description = "MIDI chord progression generator from Roman numeral analysis."
 requires-python = ">=3.11"
 dependencies = [
     "mido>=1.3.0",
+    "mcp>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -14,6 +15,7 @@ dev = [
 
 [project.scripts]
 banjo-corpus = "banjo.corpus:main"
+banjo-mcp = "banjo.mcp_server:main"
 
 [build-system]
 requires = ["hatchling"]
