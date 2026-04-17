@@ -1,6 +1,4 @@
-# banjo
-
-MIDI chord progression generator from Roman numeral analysis. Named after Banjo Paterson.
+# Banjo Midison
 
 MIDI chord progression generator as an MCP server. Named after Banjo Paterson, the poet.
 

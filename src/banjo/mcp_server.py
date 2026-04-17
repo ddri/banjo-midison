@@ -31,7 +31,7 @@ from banjo.theory import MODE_INTERVALS, parse_pitch_class
 
 logger = logging.getLogger("banjo.mcp")
 
-server: Server = Server("banjo")
+server: Server = Server("banjo-midison")
 
 
 # ---------------------------------------------------------------------------
