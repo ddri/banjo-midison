@@ -167,3 +167,38 @@ def test_generate_creates_default_output_dir(isolated_config_dir, tmp_path, monk
 
     assert default_out.is_dir()
     assert Path(result["filepath"]).parent == default_out.resolve()
+
+
+import asyncio
+
+
+def test_call_tool_dispatcher_generate(isolated_config_dir, tmp_path):
+    """The async call_tool dispatcher returns TextContent with JSON-encoded result."""
+    config.set_output_directory(tmp_path / "out")
+
+    response = asyncio.run(mcp_server.call_tool("generate_midi_progression", {
+        "key_center": "C", "scale_type": "major", "bpm": 100,
+        "chords": [{"numeral": "I", "duration_beats": 4}],
+    }))
+
+    assert len(response) == 1
+    assert response[0].type == "text"
+    payload = json.loads(response[0].text)
+    assert payload["total_beats"] == 4
+    assert "filepath" in payload
+
+
+def test_call_tool_dispatcher_unknown_tool_raises():
+    with pytest.raises(ValueError, match="Unknown tool"):
+        asyncio.run(mcp_server.call_tool("nonexistent", {}))
+
+
+def test_list_tools_returns_two_tools():
+    tools = asyncio.run(mcp_server.list_tools())
+    names = {t.name for t in tools}
+    assert names == {"generate_midi_progression", "set_output_directory"}
+    # Schemas are non-trivial.
+    schemas = {t.name: t.inputSchema for t in tools}
+    assert schemas["generate_midi_progression"]["required"] == [
+        "key_center", "scale_type", "bpm", "chords",
+    ]
