@@ -112,47 +112,10 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
         time=0,
     ))
 
-    # Emit notes. mido uses delta times; we accumulate.
-    seconds_per_beat = 60.0 / request.bpm
-    ticks_per_ms = TICKS_PER_BEAT / (seconds_per_beat * 1000.0)
-
+    # Build resolved metadata for each chord.
     current_beat = 0.0
     resolved_metadata: list[dict] = []
-
     for spec, parsed, chord, voiced in resolved_chords:
-        duration_ticks = int(round(spec.duration_beats * TICKS_PER_BEAT))
-
-        # Compute per-note velocity + timing offsets.
-        note_events: list[tuple[int, str, int, int]] = []  # (abs_tick, type, note, velocity)
-        chord_start_tick = int(round(current_beat * TICKS_PER_BEAT))
-
-        for note in voiced:
-            velocity = request.humanize.base_velocity
-            if request.humanize.velocity_range > 0:
-                velocity += rng.randint(-request.humanize.velocity_range, request.humanize.velocity_range)
-            velocity = max(1, min(127, velocity))
-
-            timing_offset_ticks = 0
-            if request.humanize.timing_ms > 0:
-                offset_ms = rng.randint(-request.humanize.timing_ms, request.humanize.timing_ms)
-                timing_offset_ticks = int(round(offset_ms * ticks_per_ms))
-
-            on_tick = chord_start_tick + timing_offset_ticks
-            off_tick = chord_start_tick + duration_ticks + timing_offset_ticks
-            note_events.append((on_tick, "on", note, velocity))
-            note_events.append((off_tick, "off", note, 0))
-
-        # Sort by tick, then type ('off' before 'on' at the same tick to
-        # avoid stuck notes when a chord ends exactly as the next begins —
-        # though here all events within a chord share the same window).
-        note_events.sort(key=lambda e: (e[0], 0 if e[1] == "off" else 1))
-
-        prev_tick = sum(msg.time for msg in track if hasattr(msg, "time"))
-        # Recompute properly by tracking absolute tick across the whole track.
-        # Simpler: reset prev_tick from a running counter.
-        # We'll use a track-local accumulator instead:
-        pass  # see refactor below
-
         resolved_metadata.append({
             "numeral": spec.numeral,
             "notes": [midi_note_name(n) for n in voiced],
@@ -162,25 +125,11 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
             "voicing": spec.voicing,
             "inversion": parsed.inversion,
         })
-
         current_beat += spec.duration_beats
 
-    # The above loop populated metadata but used a faulty approach to track
-    # writing. Rebuild the track cleanly using a single absolute-tick stream.
-    track.clear()
-    track.append(mido.MetaMessage("set_tempo", tempo=mido.bpm2tempo(request.bpm), time=0))
-    track.append(mido.MetaMessage(
-        "time_signature",
-        numerator=num,
-        denominator=den,
-        clocks_per_click=24,
-        notated_32nd_notes_per_beat=8,
-        time=0,
-    ))
-
-    # Reset RNG so velocity/timing are reproducible regardless of the
-    # first-pass loop above (which consumed RNG state for metadata).
-    rng = random.Random(request.seed) if request.seed is not None else random.Random()
+    # Emit MIDI events using absolute ticks, then convert to delta times.
+    seconds_per_beat = 60.0 / request.bpm
+    ticks_per_ms = TICKS_PER_BEAT / (seconds_per_beat * 1000.0)
 
     all_events: list[tuple[int, int, str, int, int]] = []
     # (abs_tick, ordering_key, type, note, velocity); ordering_key ensures

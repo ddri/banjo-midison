@@ -37,8 +37,8 @@ def _basic_ii_v_i_major() -> GenerationRequest:
         ],
         octave=4,
         filename="01_ii-V-I_C_major_close",
-        prompt_context="Sanity check: the most basic jazz cadence in C major, root-position close voicings.",
-        generation_notes="If this doesn't sound like a textbook ii-V-I, the parser or chord builder is wrong.",
+        prompt_context="The most basic jazz cadence in C major, root-position close voicings.",
+        generation_notes="A textbook ii-V-I — the foundation of jazz harmony.",
     )
 
 
