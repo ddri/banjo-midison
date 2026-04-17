@@ -27,7 +27,7 @@ from banjo.midi_writer import (
     HumanizeSpec,
     generate,
 )
-from banjo.theory import MODE_INTERVALS
+from banjo.theory import MODE_INTERVALS, parse_pitch_class
 
 logger = logging.getLogger("banjo.mcp")
 
@@ -252,6 +252,17 @@ def _build_generation_request(arguments: dict) -> GenerationRequest:
     for required in ("key_center", "scale_type", "bpm", "chords"):
         if required not in arguments:
             raise ValueError(f"Missing required argument: {required}")
+
+    try:
+        parse_pitch_class(arguments["key_center"])
+    except ValueError:
+        raise ValueError(f"Invalid key_center: {arguments['key_center']!r}")
+
+    if arguments["scale_type"] not in MODE_INTERVALS:
+        raise ValueError(
+            f"Invalid scale_type: {arguments['scale_type']!r}. "
+            f"Valid options: {sorted(MODE_INTERVALS.keys())}"
+        )
 
     chords_raw = arguments["chords"]
     if not isinstance(chords_raw, list) or not chords_raw:

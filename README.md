@@ -107,6 +107,9 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 Restart Claude Desktop. The two tools should appear in the tools picker.
 
+> **Note:** The command path points at the project's `.venv`. If you move the
+> repo or recreate the venv, update this path accordingly.
+
 ### Logs
 
 Server logs go to stderr at `INFO` level. To inspect them while developing:

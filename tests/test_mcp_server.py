@@ -148,7 +148,7 @@ def test_generate_bad_numeral_raises():
 
 
 def test_generate_bad_scale_raises():
-    with pytest.raises(ValueError, match="Unknown mode"):
+    with pytest.raises(ValueError, match="Invalid scale_type"):
         mcp_server.handle_generate_midi_progression({
             "key_center": "C", "scale_type": "bogolian", "bpm": 100,
             "chords": [{"numeral": "I", "duration_beats": 4}],
@@ -169,6 +169,38 @@ def test_generate_creates_default_output_dir(isolated_config_dir, tmp_path, monk
     assert default_out.is_dir()
     assert Path(result["filepath"]).parent == default_out.resolve()
 
+
+def test_generate_bad_key_center_raises():
+    with pytest.raises(ValueError, match="Invalid key_center"):
+        mcp_server.handle_generate_midi_progression({
+            "key_center": "Cmaj", "scale_type": "major", "bpm": 100,
+            "chords": [{"numeral": "I", "duration_beats": 4}],
+        })
+
+
+def test_generate_seed_reproducibility(isolated_config_dir, tmp_path):
+    """Same params + same seed = byte-identical MIDI files."""
+    config.set_output_directory(tmp_path / "out")
+
+    args = {
+        "key_center": "C", "scale_type": "major", "bpm": 100,
+        "chords": [
+            {"numeral": "ii7", "duration_beats": 4, "voicing": "drop2"},
+            {"numeral": "V7", "duration_beats": 4, "voicing": "drop2"},
+            {"numeral": "Imaj7", "duration_beats": 8, "voicing": "drop2"},
+        ],
+        "humanize": {"velocity_range": 10, "timing_ms": 5, "base_velocity": 75},
+        "seed": 42,
+        "filename": "repro_test_1",
+    }
+    result1 = mcp_server.handle_generate_midi_progression(args)
+
+    args["filename"] = "repro_test_2"
+    result2 = mcp_server.handle_generate_midi_progression(args)
+
+    bytes1 = Path(result1["filepath"]).read_bytes()
+    bytes2 = Path(result2["filepath"]).read_bytes()
+    assert bytes1 == bytes2
 
 
 def test_call_tool_dispatcher_generate(isolated_config_dir, tmp_path):
