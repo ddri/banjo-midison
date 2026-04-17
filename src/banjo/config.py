@@ -36,3 +36,18 @@ def get_output_directory() -> Path:
     if raw:
         return Path(raw).expanduser()
     return DEFAULT_OUTPUT_DIR
+
+
+def _save(cfg: dict) -> None:
+    """Write config to disk, creating CONFIG_DIR if needed."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    _config_file().write_text(json.dumps(cfg, indent=2) + "\n")
+
+
+def set_output_directory(path: str | Path) -> Path:
+    """Persist the output directory to config. Returns the resolved absolute path."""
+    resolved = Path(path).expanduser().resolve()
+    cfg = _load()
+    cfg["output_directory"] = str(resolved)
+    _save(cfg)
+    return resolved
