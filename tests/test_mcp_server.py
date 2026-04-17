@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -168,8 +169,6 @@ def test_generate_creates_default_output_dir(isolated_config_dir, tmp_path, monk
     assert default_out.is_dir()
     assert Path(result["filepath"]).parent == default_out.resolve()
 
-
-import asyncio
 
 
 def test_call_tool_dispatcher_generate(isolated_config_dir, tmp_path):
