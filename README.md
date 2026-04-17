@@ -5,8 +5,8 @@ MIDI chord progression generator as an MCP server. Named after Banjo Paterson, t
 ## Setup
 
 ```bash
-git clone https://github.com/ddri/banjo.git
-cd banjo
+git clone https://github.com/ddri/banjo-midison.git
+cd banjo-midison
 uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
 ```
@@ -26,7 +26,7 @@ banjo-corpus
 # or: python -m banjo.corpus
 ```
 
-Writes 12 `.mid` files plus `.md` sidecars to `./output/` by default. Drag them into Ableton and audition each one. If anything sounds wrong, the bug is in the theory layer — fix it here before moving to Phase 2.
+Writes 12 `.mid` files plus `.md` sidecars to `./output/` by default. Drag them into your DAW and audition each one to verify the theory engine.
 
 Override the output directory:
 
@@ -74,10 +74,11 @@ Supported:
 - Inversions via figured-bass shorthand: `V6` (first), `V64` (second), `V42` (third of seventh chord)
 - Inversions also settable explicitly via `ChordSpec.inversion`
 
-## Phase 2: MCP server
+## MCP server
 
 `banjo-mcp` is a stdio-transport MCP server that exposes the generator to any
-MCP host (Claude Desktop, Continue, etc).
+MCP host — Claude Desktop, Claude Code, Cursor, Continue, or anything else
+that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
 
 ### Tools
 
@@ -89,22 +90,39 @@ MCP host (Claude Desktop, Continue, etc).
 - **`set_output_directory`** — persist the output directory to
   `~/.banjo/config.json`. Default is `~/Music/banjo/`, created on first write.
 
-### Claude Desktop config
+### Connecting to an MCP host
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+The server runs over stdio. Point your MCP host at the `banjo-mcp` entry
+point. The exact config depends on your host:
+
+**Claude Desktop** — add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "banjo": {
-      "command": "/absolute/path/to/banjo/.venv/bin/banjo-mcp"
+    "banjo-midison": {
+      "command": "/absolute/path/to/banjo-midison/.venv/bin/banjo-mcp"
     }
   }
 }
 ```
 
-Replace the path with the absolute path to your clone's `.venv`. Then
-restart Claude Desktop — the two tools should appear in the tools picker.
+**Claude Code** — add to your project or global settings:
+
+```json
+{
+  "mcpServers": {
+    "banjo-midison": {
+      "command": "/absolute/path/to/banjo-midison/.venv/bin/banjo-mcp"
+    }
+  }
+}
+```
+
+**Other hosts** (Cursor, Continue, etc.) — consult your host's MCP
+documentation. The command is always `.venv/bin/banjo-mcp` from the repo root.
+
+After configuring, restart your MCP host. The two tools should appear.
 
 ### Logs
 
@@ -115,16 +133,10 @@ Server logs go to stderr at `INFO` level. To inspect them while developing:
 # (in another shell) tail -f /tmp/banjo-mcp.log
 ```
 
-### After schema changes
-
-Claude Desktop caches tool schemas at startup. If you add a tool, change a
-field, or rename anything in `inputSchema`, **fully quit and relaunch
-Claude Desktop** (Cmd+Q, not just close window). Refreshing or starting a
-new chat does not reload tool definitions.
-
 ### Output directory
 
-Files land in `~/Music/banjo/` by default. Change it from inside Claude Desktop:
+Files land in `~/Music/banjo/` by default. Change it via the
+`set_output_directory` tool:
 
 > "Set the banjo output directory to ~/Music/Ableton/banjo-clips"
 
