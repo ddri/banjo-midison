@@ -2,7 +2,8 @@
 
 import pytest
 
-from banjo.voice_leading import _voicing_distance, choose_voicing_position
+from banjo.theory import parse_roman_numeral, parse_pitch_class
+from banjo.voice_leading import _voicing_distance, choose_voicing_position, build_candidates
 
 
 class TestVoicingDistance:
@@ -69,3 +70,61 @@ class TestChooseVoicingPosition:
         # Tie at 0. |k|=1 for both. Signed k smaller -> k=-1 -> [60].
         result = choose_voicing_position([[72]], [60, 84])
         assert result == [60]
+
+
+class TestBuildCandidates:
+    def test_triad_close_voicing_yields_three_inversions(self):
+        # I in C major, close voicing, no explicit inversion -> 3 candidates
+        parsed = parse_roman_numeral("I")
+        candidates = build_candidates(
+            parsed, parse_pitch_class("C"), "major", octave=4,
+            voicing="close", explicit_inversion=False,
+        )
+        assert len(candidates) == 3
+        # Inversion 0: [60, 64, 67] (root position)
+        assert sorted(candidates[0]) == [60, 64, 67]
+
+    def test_seventh_chord_yields_four_inversions(self):
+        # I7 in C major, close voicing -> 4 candidates (root, 1st, 2nd, 3rd)
+        parsed = parse_roman_numeral("I7")
+        candidates = build_candidates(
+            parsed, parse_pitch_class("C"), "major", octave=4,
+            voicing="close", explicit_inversion=False,
+        )
+        assert len(candidates) == 4
+
+    def test_thirteenth_chord_capped_at_four_inversions(self):
+        # V13 has 7 notes; cap = min(3, N-1) = min(3, 6) = 3, so 4 candidates
+        parsed = parse_roman_numeral("V13")
+        candidates = build_candidates(
+            parsed, parse_pitch_class("C"), "major", octave=4,
+            voicing="close", explicit_inversion=False,
+        )
+        assert len(candidates) == 4
+        # Bottom note pitch class of every candidate must be a chord tone (R/3/5/7)
+        # of V in C: G=7, B=11, D=2, F=5
+        for cand in candidates:
+            assert min(cand) % 12 in {7, 11, 2, 5}
+
+    def test_rootless_seventh_yields_three_candidates(self):
+        # I7 rootless: N (post-voicing) = 3, so candidates {0, 1, 2}
+        parsed = parse_roman_numeral("I7")
+        candidates = build_candidates(
+            parsed, parse_pitch_class("C"), "major", octave=4,
+            voicing="rootless", explicit_inversion=False,
+        )
+        assert len(candidates) == 3
+        # Each candidate has 3 notes (root dropped after inversion)
+        for cand in candidates:
+            assert len(cand) == 3
+
+    def test_explicit_inversion_yields_single_candidate(self):
+        # V64 with explicit_inversion=True -> candidate set is {2} only
+        parsed = parse_roman_numeral("V64")  # parses to inversion 2
+        candidates = build_candidates(
+            parsed, parse_pitch_class("C"), "major", octave=4,
+            voicing="close", explicit_inversion=True,
+        )
+        assert len(candidates) == 1
+        # V at 2nd inversion close = D-G-B = [74, 79, 83]
+        assert sorted(candidates[0]) == [74, 79, 83]

@@ -8,6 +8,11 @@ for the full algorithm and rationale.
 
 from __future__ import annotations
 
+import dataclasses
+
+from banjo.theory import ParsedNumeral, build_chord
+from banjo.voicings import VoicingName, apply_voicing
+
 
 def _voicing_distance(candidate: list[int], previous: list[int]) -> int:
     """
@@ -64,3 +69,45 @@ def choose_voicing_position(
 
     assert best_notes is not None
     return best_notes
+
+
+def build_candidates(
+    parsed: ParsedNumeral,
+    key_pc: int,
+    mode: str,
+    octave: int,
+    voicing: VoicingName,
+    explicit_inversion: bool,
+) -> list[list[int]]:
+    """
+    Build the candidate set of voiced chord notes for voice leading.
+
+    If explicit_inversion is True, the candidate set is {parsed.inversion}.
+    Otherwise it is {0, 1, ..., min(3, N-1)} where N is the post-voicing
+    note count (chord note count minus 1 if voicing is 'rootless', else
+    unchanged).
+
+    Each candidate is built via build_chord(modified_inversion) followed
+    by apply_voicing(voicing). Returns a list of voiced note lists, one
+    per candidate inversion.
+    """
+    if explicit_inversion:
+        inversions = [parsed.inversion]
+    else:
+        # Build once at root position to count pre-voicing notes.
+        chord_root = build_chord(
+            dataclasses.replace(parsed, inversion=0), key_pc, mode, octave=octave,
+        )
+        n_pre = len(chord_root.midi_notes)
+        n_post = n_pre - 1 if voicing == "rootless" else n_pre
+        max_inv = min(3, n_post - 1)
+        inversions = list(range(max_inv + 1))
+
+    candidates: list[list[int]] = []
+    for inv in inversions:
+        chord = build_chord(
+            dataclasses.replace(parsed, inversion=inv), key_pc, mode, octave=octave,
+        )
+        voiced = apply_voicing(list(chord.midi_notes), voicing)
+        candidates.append(voiced)
+    return candidates
