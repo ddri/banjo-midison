@@ -4,6 +4,7 @@ output/
 *.md
 !README.md
 !LICENSE
+!docs/**/*.md
 
 # Python
 __pycache__/
