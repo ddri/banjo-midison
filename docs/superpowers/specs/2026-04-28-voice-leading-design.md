@@ -48,7 +48,20 @@ For each subsequent chord, when `voice_lead` is true:
 4. Score every candidate directly by **voicing distance** (defined below).
 5. Pick the lowest-scoring candidate. Ties are broken by preferring (a) the smaller inversion number, (b) the smaller `|k|`, then (c) the smaller signed `k`. Deterministic.
 
-When `voice_lead` is false: skip steps 1–5 entirely. Render exactly as today.
+When `voice_lead` is false, or when there is no previous chord (chord 1, or a single-chord progression): skip steps 1–5 entirely. Render exactly as today using the supplied octave, voicing, and inversion. The candidate-selection function is never invoked without a previous chord.
+
+### Inversion / voicing order
+
+Inversion is applied by `build_chord` *before* the voicing transformation in `apply_voicing`. For most voicings this is unambiguous (drop2 of inv-1 vs drop2 of inv-0 are different sounds — both legitimate candidates).
+
+For `rootless` specifically, the lowest-note-dropped depends on which inversion was applied first:
+
+- inv 0 + rootless → root dropped, 3rd in the bass
+- inv 1 + rootless → 3rd dropped, 5th in the bass
+- inv 2 + rootless → 5th dropped, 7th in the bass
+- inv 3 + rootless → 7th dropped, root in the bass (rotated up an octave)
+
+The candidate set is still `{0, …, min(3, N−1)}` where `N` is the post-voicing note count (so rootless of a 7th chord has 3 voices and a 3-element candidate set). "Inversion 0" of a rootless chord therefore does not mean "root in the bass" — it means "the original root-position chord, with its lowest note dropped." This is the existing pipeline; voice leading does not change it.
 
 ### Voicing distance
 
@@ -89,14 +102,27 @@ Without voice leading the same input produces V at root position [67, 71, 74], w
 Single public function:
 
 ```python
-def choose_inversion(
-    candidates: list[ResolvedChord],
+def choose_voicing_position(
+    candidates: list[list[int]],
     previous_notes: list[int],
-) -> ResolvedChord:
-    """Pick the candidate whose voiced notes minimize voice motion from previous_notes."""
+) -> list[int]:
+    """
+    Pick the (inversion, octave-shift) combination that minimizes voicing
+    distance from previous_notes.
+
+    `candidates` is the list of per-inversion voiced note lists (caller has
+    already applied build_chord + apply_voicing for each candidate inversion).
+    The function expands the cross-product with k ∈ {-2, -1, 0, +1, +2}
+    internally and returns the winning shifted notes.
+
+    Precondition: `previous_notes` is non-empty. The function is not called
+    for chord 1; that path renders directly with the request-level seed.
+    """
 ```
 
-Plus one private helper for the octave-shift step.
+Naming choice: `choose_voicing_position` rather than `choose_inversion` — the function picks both inversion and register, so the name should reflect both axes.
+
+Plus one private helper for the voicing-distance score.
 
 **Modified files:**
 
@@ -121,14 +147,14 @@ New file: `tests/test_voice_leading.py`. Cases:
 
 - `I → V` in C major, both close, voice_lead on → V comes out as 1st inversion at `k=−1` (the worked example above).
 - `I → V` in C major, both close, voice_lead off → V comes out as root position (unchanged behavior).
-- Explicit inversion respected: `V64` with voice_lead on stays second inversion even if root would score lower.
-- Explicit inversion via `ChordSpec.inversion=1` respected the same way.
+- Explicit inversion respected: `V64` with voice_lead on stays second inversion *and* its `k` is the one minimizing voicing distance among the 5 candidates at that inversion. (Pinning inversion does not pin `k`; otherwise this case silently reverts to non-voice-led behavior.)
+- Explicit inversion via `ChordSpec.inversion=1` respected the same way: inversion forced, `k` still chosen by score.
 - Extension cap: a 13th chord (e.g. `V13`) with voice_lead on never lands with the 9th, 11th, or 13th in the bass — only the root, 3rd, 5th, or 7th can be the lowest note.
 - Determinism: same input twice yields identical MIDI bytes.
 - Tie-breaking: when two candidates score equally, the smaller inversion number wins; subsequent ties prefer smaller `|k|`, then smaller signed `k`.
 - Voicing preservation: with `voice_lead` on and `voicing="drop2"`, every output chord still has drop2 spacing relationships (2nd-from-top is an octave below where it would be in close position).
 - Rootless sanity: `I → ii` with chord 1 close (4 voices) and chord 2 rootless (3 voices) still produces a sensible inversion choice — voice leading only compares candidates of the *same* chord, so the cross-chord voice-count mismatch doesn't bias the score.
-- Register stability: a long progression (8+ chords) stays within ±1 octave of the starting register.
+- Register stability under stress: a chromatic-mediant chain `I → bIII → bVI → III → I` in C major (large root motion, sympathetic to runaway drift) stays within ±12 semitones of the starting register, measured by the lowest note across all chords. This is an *empirical* test — the algorithm doesn't formally bound drift, but the score function (which inherently penalizes large `|k|` via larger voicing distances) plus the `|k|` tie-breaker produce stable behavior in practice. If a future change breaks that, this test will catch it.
 - First chord is identical with and without voice_lead.
 - `apply_voicing` purity regression: calling `apply_voicing` twice with the same `(notes, voicing)` returns identical lists (guards the determinism precondition).
 
