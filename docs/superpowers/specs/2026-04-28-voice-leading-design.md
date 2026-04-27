@@ -42,7 +42,7 @@ For each subsequent chord, when `voice_lead` is true:
 
 1. Determine the candidate inversion set:
    - If the user explicitly set an inversion on this chord (either via numeral shorthand like `V64` / `V42`, or via the `inversion` field), the set is `{that inversion}` — voice leading does not override user intent.
-   - Otherwise, the set is `{0, 1, …, min(3, N−1)}` where `N` is the voiced note count. This caps inversion at the 3rd (the 7th in the bass); 9ths, 11ths, and 13ths participate in voice leading as upper voices but are never placed in the bass.
+   - Otherwise, the set is `{0, 1, …, min(3, N−1)}` where `N` is the post-voicing note count. `N` is derivable without running `apply_voicing`: it is the chord's note count minus 1 if the voicing is `rootless`, otherwise unchanged. This caps inversion at the 3rd (the 7th in the bass); 9ths, 11ths, and 13ths participate in voice leading as upper voices but are never placed in the bass.
 2. For each candidate inversion, build the chord at that inversion (via `build_chord`) and apply the user's voicing (via `apply_voicing`, unchanged).
 3. For each voiced result, enumerate octave shifts `k ∈ {−2, −1, 0, +1, +2}`. The full candidate space is the cross-product (inversion × k) — up to 4 × 5 = 20 candidates per chord.
 4. Score every candidate directly by **voicing distance** (defined below).
@@ -59,9 +59,9 @@ For `rootless` specifically, the lowest-note-dropped depends on which inversion 
 - inv 0 + rootless → root dropped, 3rd in the bass
 - inv 1 + rootless → 3rd dropped, 5th in the bass
 - inv 2 + rootless → 5th dropped, 7th in the bass
-- inv 3 + rootless → 7th dropped, root in the bass (rotated up an octave)
+- inv 3 + rootless → 7th dropped, root in the bass (rotated up an octave) *— only reachable as a voice-leading candidate for 9ths and beyond, since the candidate cap excludes inv 3 from rootless triads (N=2) and rootless 7ths (N=3). It is reachable for rootless 9ths (N=4), 11ths (N=5), and 13ths (N=6).*
 
-The candidate set is still `{0, …, min(3, N−1)}` where `N` is the post-voicing note count (so rootless of a 7th chord has 3 voices and a 3-element candidate set). "Inversion 0" of a rootless chord therefore does not mean "root in the bass" — it means "the original root-position chord, with its lowest note dropped." This is the existing pipeline; voice leading does not change it.
+The candidate set is still `{0, …, min(3, N−1)}` where `N` is the post-voicing note count (so rootless of a 7th chord has 3 voices and a 3-element candidate set: {0, 1, 2}). "Inversion 0" of a rootless chord therefore does not mean "root in the bass" — it means "the original root-position chord, with its lowest note dropped." This is the existing pipeline; voice leading does not change it.
 
 ### Voicing distance
 
@@ -126,7 +126,7 @@ Plus one private helper for the voicing-distance score.
 
 **Modified files:**
 
-- `src/banjo/midi_writer.py`: in the existing chord-building loop in `generate()`, when `request.voice_lead` is true and a previous chord exists, build all candidate inversions, apply the chord's voicing to each, call `choose_inversion`, and use the result. When false, behavior is byte-identical to today.
+- `src/banjo/midi_writer.py`: in the existing chord-building loop in `generate()`, when `request.voice_lead` is true and a previous chord exists, build all candidate inversions, apply the chord's voicing to each, call `choose_voicing_position`, and use the returned notes. When false, behavior is byte-identical to today.
 - `src/banjo/midi_writer.py`: add `voice_lead: bool = False` to `GenerationRequest`.
 - `src/banjo/mcp_server.py`: add `voice_lead` boolean to `GENERATE_MIDI_PROGRESSION_SCHEMA`. Plumb it through `_build_generation_request`.
 
