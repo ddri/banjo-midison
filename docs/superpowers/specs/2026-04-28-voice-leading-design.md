@@ -36,38 +36,51 @@ No changes to per-chord `ChordSpec` fields. No new voicing names. No new endpoin
 
 ## Algorithm
 
-For the first chord: render exactly as today (use the supplied octave, voicing, and inversion). It is the seed.
+For the first chord: render exactly as today (use the request-level `octave`, the chord's `voicing`, and the chord's inversion). It is the seed.
 
 For each subsequent chord, when `voice_lead` is true:
 
 1. Determine the candidate inversion set:
-   - If the user explicitly set an inversion on this chord (either via numeral shorthand like `V64` / `V42`, or via the `inversion` field), the candidate set is `{that inversion}` — voice leading does not override user intent.
-   - Otherwise, the candidate set is `{0, 1, 2}` for triads and `{0, 1, 2, 3}` for chords with a 7th.
-2. For each candidate inversion:
-   a. Build the chord at that inversion using the existing `build_chord` path.
-   b. Apply the user's chosen voicing via `apply_voicing` (unchanged).
-   c. Octave-shift the *whole* resulting chord by an integer number of octaves `k ∈ [-2, +2]` so that its mean pitch is closest to the previous chord's mean pitch. If two values of `k` tie, prefer the smaller `|k|`. (This stops voice leading from drifting the register over many chords.)
-   d. Score the result: sum over voices of the minimum semitone distance from each note in this chord to any note in the previous chord. Lower score = smoother.
-3. Pick the candidate with the lowest score. Ties are broken by preferring (a) the smaller inversion number, then (b) the smaller absolute octave shift `k`. Deterministic.
+   - If the user explicitly set an inversion on this chord (either via numeral shorthand like `V64` / `V42`, or via the `inversion` field), the set is `{that inversion}` — voice leading does not override user intent.
+   - Otherwise, the set is `{0, 1, …, min(3, N−1)}` where `N` is the voiced note count. This caps inversion at the 3rd (the 7th in the bass); 9ths, 11ths, and 13ths participate in voice leading as upper voices but are never placed in the bass.
+2. For each candidate inversion, build the chord at that inversion (via `build_chord`) and apply the user's voicing (via `apply_voicing`, unchanged).
+3. For each voiced result, enumerate octave shifts `k ∈ {−2, −1, 0, +1, +2}`. The full candidate space is the cross-product (inversion × k) — up to 4 × 5 = 20 candidates per chord.
+4. Score every candidate directly by **voicing distance** (defined below).
+5. Pick the lowest-scoring candidate. Ties are broken by preferring (a) the smaller inversion number, (b) the smaller `|k|`, then (c) the smaller signed `k`. Deterministic.
 
-When `voice_lead` is false: skip steps 1–3 entirely. Render exactly as today.
+When `voice_lead` is false: skip steps 1–5 entirely. Render exactly as today.
 
-### Scoring detail
+### Voicing distance
 
-"Voice motion" is computed as: for each note `n` in the candidate chord, find the closest note in the previous chord (by absolute MIDI distance), and sum those distances. This is asymmetric and tolerant of voice count changes (e.g. rootless chords have one fewer note). Simpler than maintaining explicit voice identity, and good enough for the smoothness signal we want.
+For a candidate chord and the previous chord's voiced notes, the score is: for each note `n` in the candidate, find the minimum absolute MIDI distance from `n` to any note in the previous chord, and sum those distances. Lower = closer.
+
+This is **not** voice-identity tracking — two candidate notes may pick the same nearest neighbor in the previous chord, and there is no one-to-one voice mapping. It is an asymmetric register-similarity score that is cheap, deterministic, and sufficient for picking smooth-sounding inversions.
+
+For the inversion-selection use case here, voice counts are constant within a single chord's candidate space (same chord and voicing, just different inversion + octave shift), so the asymmetry does not bias one candidate over another. The asymmetry would only matter when comparing across chords with different voice counts (e.g. close vs rootless), and the algorithm never does that — it only compares candidates of the *same* chord.
+
+Determinism depends on `apply_voicing` being a pure function of `(notes, voicing)`. It is today (`voicings.py` sorts its input and holds no state); a regression test pins this.
+
+### Octave handling
+
+The request-level `octave` field seeds chord 1 only. From chord 2 onward, the per-chord octave shift `k` (chosen by step 3) determines register. `octave` therefore controls where the progression *starts*; the algorithm controls where each subsequent chord *sits relative to its predecessor*.
+
+There is no per-chord octave override on `ChordSpec` today. If one is added later, the rule should be: an explicit per-chord octave pins `k = 0` for that chord, analogous to how an explicit inversion pins the candidate inversion set.
 
 ### Worked example
 
-`I → V` in C major, both `close` voicing, `voice_lead: true`:
+`I → V` in C major, both `close` voicing, `voice_lead: true`. Previous chord = [60, 64, 67] (C-E-G).
 
-- Chord 1 (I, root): [60, 64, 67] (C-E-G).
-- Chord 2 (V) candidates:
-  - root: G-B-D close = [67, 71, 74]. Score: |67-67|+|71-67|+|74-67| = 0+4+7 = 11.
-  - 1st inv: B-D-G close = [71, 74, 79]. Score: 4+7+12 = 23.
-  - 2nd inv: D-G-B close = [62, 67, 71]. Score: 2+0+4 = 6.
-- Winner: 2nd inversion. Result: C-E-G → D-G-B. Voices move by 2, 3, 4 semitones — the common tone (G) is preserved, the other voices step.
+V candidate space (showing the best `k` per inversion):
 
-Without voice leading the same input produces C-E-G → G-B-D, with every voice jumping a 4th.
+| Inversion | k  | Notes        | Voicing distance |
+|-----------|----|--------------|------------------|
+| root      | −1 | [55, 59, 62] | 5 + 1 + 2 = 8    |
+| 1st       | −1 | [59, 62, 67] | 1 + 2 + 0 = **3** |
+| 2nd       |  0 | [62, 67, 71] | 2 + 0 + 4 = 6    |
+
+Winner: 1st inversion of V at `k = −1`, giving B-D-G. Voices move 60→59 (−1), 64→62 (−2), 67→67 (0) — the G common tone is preserved and the other voices step.
+
+Without voice leading the same input produces V at root position [67, 71, 74], with every voice jumping a 4th up.
 
 ## Code structure
 
@@ -106,15 +119,18 @@ If either is true, voice leading uses that inversion as the only candidate. If b
 
 New file: `tests/test_voice_leading.py`. Cases:
 
-- `I → V` in C major, both close, voice_lead on → V comes out as 2nd inversion (the worked example above).
+- `I → V` in C major, both close, voice_lead on → V comes out as 1st inversion at `k=−1` (the worked example above).
 - `I → V` in C major, both close, voice_lead off → V comes out as root position (unchanged behavior).
 - Explicit inversion respected: `V64` with voice_lead on stays second inversion even if root would score lower.
 - Explicit inversion via `ChordSpec.inversion=1` respected the same way.
+- Extension cap: a 13th chord (e.g. `V13`) with voice_lead on never lands with the 9th, 11th, or 13th in the bass — only the root, 3rd, 5th, or 7th can be the lowest note.
 - Determinism: same input twice yields identical MIDI bytes.
-- Tie-breaking: when two candidates score equally, the smaller inversion number wins.
+- Tie-breaking: when two candidates score equally, the smaller inversion number wins; subsequent ties prefer smaller `|k|`, then smaller signed `k`.
 - Voicing preservation: with `voice_lead` on and `voicing="drop2"`, every output chord still has drop2 spacing relationships (2nd-from-top is an octave below where it would be in close position).
-- Register stability: a long progression doesn't drift more than ~1 octave from the starting register.
+- Rootless sanity: `I → ii` with chord 1 close (4 voices) and chord 2 rootless (3 voices) still produces a sensible inversion choice — voice leading only compares candidates of the *same* chord, so the cross-chord voice-count mismatch doesn't bias the score.
+- Register stability: a long progression (8+ chords) stays within ±1 octave of the starting register.
 - First chord is identical with and without voice_lead.
+- `apply_voicing` purity regression: calling `apply_voicing` twice with the same `(notes, voicing)` returns identical lists (guards the determinism precondition).
 
 Existing tests in `test_voicings.py`, `test_theory.py`, `test_midi_writer.py`, `test_mcp_server.py` should all continue to pass without modification.
 
