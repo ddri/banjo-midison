@@ -52,11 +52,14 @@ class TestChooseVoicingPosition:
         assert result == [66]
 
     def test_tie_break_prefers_smaller_inversion_index(self):
-        # Two inversions producing identical voiced notes -> idx 0 wins.
-        # Both candidates are [60,64,67] vs previous [60,64,67] -> score 0 at k=0.
-        # The function returns the inversion-0 candidate (which is idx 0).
-        result = choose_voicing_position([[60, 64, 67], [60, 64, 67]], [60, 64, 67])
-        assert sorted(result) == [60, 64, 67]
+        # Two candidates that both score 0 at k=0:
+        # cand 0: [60] -> at k=0 vs previous [60], distance 0
+        # cand 1: [60, 60] -> at k=0 vs previous [60], distance 0 (both 60s pick prev[0]=60)
+        # Both reach score 0 at k=0. Tie-keys: (0,0,0) vs (1,0,0). Idx 0 wins.
+        # The result is [60] (length 1), proving idx 0 was picked, not idx 1
+        # (which would have returned [60, 60], length 2).
+        result = choose_voicing_position([[60], [60, 60]], [60])
+        assert result == [60]
 
     def test_tie_break_signed_k_when_abs_k_ties(self):
         # previous=[60, 84]; candidate=[[72]]:
