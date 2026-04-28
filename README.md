@@ -21,7 +21,7 @@ uv pip install -e ".[dev]"
 pytest
 ```
 
-76 tests covering the parser, chord builder, voicings, MIDI writer, config, and MCP server.
+107 tests covering the parser, chord builder, voicings, voice leading, MIDI writer, config, and MCP server.
 
 ## Generate the audition corpus
 
@@ -88,11 +88,15 @@ that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
 
 - **`generate_midi_progression`** — render a Roman numeral progression to MIDI.
   Required: `key_center`, `scale_type`, `bpm`, `chords`. Optional: `octave`,
-  `time_signature`, `humanize`, `seed`, `filename`, `prompt_context`,
+  `time_signature`, `humanize`, `seed`, `voice_lead`, `filename`, `prompt_context`,
   `generation_notes`. Returns `{filepath, sidecar_path, resolved, total_beats}`.
 
 - **`set_output_directory`** — persist the output directory to
   `~/.banjo/config.json`. Default is `~/Music/banjo/`, created on first write.
+
+### Voice leading
+
+When `voice_lead: true` is passed, each chord after the first has its inversion and octave register chosen to minimize voice motion from the previous chord. The per-chord `voicing` is preserved (drop2 stays drop2, etc.), and explicit inversions — whether via numeral form (`V64`) or the `inversion` field — are respected. Off by default; enabling it makes consecutive chords flow smoothly instead of jumping registers.
 
 ### Connecting to an MCP host
 
