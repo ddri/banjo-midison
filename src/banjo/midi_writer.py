@@ -87,6 +87,8 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
     for spec in request.chords:
         parsed = parse_roman_numeral(spec.numeral)
         # Track explicitness BEFORE overriding so voice leading respects user intent.
+        # spec.inversion=0 counts as explicit (user named root deliberately, per MCP
+        # schema "omit this" guidance); only None means "implicit, optimizer free to pick".
         explicit_inversion = parsed.inversion > 0 or spec.inversion is not None
         if spec.inversion is not None:
             parsed.inversion = spec.inversion
