@@ -133,3 +133,48 @@ class TestMidiWriter:
         # Lowest note should be E (pitch class 4), not C
         first_chord_midi = result.resolved[0]["midi"]
         assert min(first_chord_midi) % 12 == 4
+
+
+class TestVoiceLead:
+    def test_voice_lead_defaults_false_unchanged_behavior(self, tmp_path):
+        # Without voice_lead, V after I lands at root position close = [67, 71, 74]
+        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        request = GenerationRequest(
+            key_center="C", scale_type="major", bpm=120,
+            chords=[
+                ChordSpec(numeral="I", duration_beats=4),
+                ChordSpec(numeral="V", duration_beats=4),
+            ],
+        )
+        result = generate(request, tmp_path)
+        assert sorted(result.resolved[1]["midi"]) == [67, 71, 74]
+
+    def test_voice_lead_true_picks_smoothest_inversion(self, tmp_path):
+        # Worked example: I -> V with voice_lead lands V at 1st inv, k=-1: [59,62,67]
+        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        request = GenerationRequest(
+            key_center="C", scale_type="major", bpm=120,
+            chords=[
+                ChordSpec(numeral="I", duration_beats=4),
+                ChordSpec(numeral="V", duration_beats=4),
+            ],
+            voice_lead=True,
+        )
+        result = generate(request, tmp_path)
+        assert sorted(result.resolved[1]["midi"]) == [59, 62, 67]
+
+    def test_first_chord_unchanged_with_voice_lead(self, tmp_path):
+        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        spec = ChordSpec(numeral="I", duration_beats=4, voicing="close")
+        off = generate(
+            GenerationRequest(key_center="C", scale_type="major", bpm=120, chords=[spec]),
+            tmp_path / "off",
+        )
+        on = generate(
+            GenerationRequest(
+                key_center="C", scale_type="major", bpm=120, chords=[spec],
+                voice_lead=True,
+            ),
+            tmp_path / "on",
+        )
+        assert off.resolved[0]["midi"] == on.resolved[0]["midi"]
