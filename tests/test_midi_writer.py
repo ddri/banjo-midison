@@ -361,6 +361,28 @@ class TestVoiceLead:
         # Pitch classes are B-D-G = {2, 7, 11} (1st inversion preserved)
         assert sorted(set(n % 12 for n in v_notes)) == [2, 7, 11]
 
+    def test_resolved_metadata_reports_chosen_inversion(self, tmp_path):
+        """
+        When voice leading picks a non-root inversion, the resolved metadata's
+        'inversion' field must report the actual chosen value, not the original
+        parse value. Regression test for a bug where inversion always read 0
+        on the voice-led path.
+        """
+        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        request = GenerationRequest(
+            key_center="C", scale_type="major", bpm=120,
+            chords=[
+                ChordSpec(numeral="I", duration_beats=4),
+                ChordSpec(numeral="V", duration_beats=4),
+            ],
+            voice_lead=True,
+        )
+        result = generate(request, tmp_path)
+        # Worked example: V lands at 1st inversion (k=-1, [59,62,67]).
+        assert result.resolved[1]["inversion"] == 1
+        # And the chord-1 metadata is unchanged (inv 0 since I is in root position).
+        assert result.resolved[0]["inversion"] == 0
+
     def test_chordspec_inversion_zero_is_treated_as_explicit(self, tmp_path):
         """
         Passing ChordSpec.inversion=0 is treated as explicit (user names root

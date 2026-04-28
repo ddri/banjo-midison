@@ -30,7 +30,7 @@ _K_RANGE = (-2, -1, 0, 1, 2)
 def choose_voicing_position(
     candidates: list[list[int]],
     previous_notes: list[int],
-) -> list[int]:
+) -> tuple[int, list[int]]:
     """
     Pick the (inversion, octave-shift) combination that minimizes voicing
     distance from previous_notes.
@@ -38,7 +38,7 @@ def choose_voicing_position(
     `candidates` is a list of voiced note lists, one per candidate inversion
     (caller has already applied build_chord + apply_voicing for each).
     The function expands the cross-product with k in {-2, -1, 0, +1, +2}
-    internally and returns the winning shifted notes.
+    internally and returns (inv_idx, shifted_notes) for the winning candidate.
 
     Tie-break order: smaller inversion index, then smaller |k|, then
     smaller signed k.
@@ -53,6 +53,7 @@ def choose_voicing_position(
 
     best_score: int | None = None
     best_notes: list[int] | None = None
+    best_inv: int | None = None
     best_key: tuple[int, int, int] | None = None
 
     for inv_idx, voiced in enumerate(candidates):
@@ -65,10 +66,11 @@ def choose_voicing_position(
             ):
                 best_score = score
                 best_notes = shifted
+                best_inv = inv_idx
                 best_key = tie_key
 
-    assert best_notes is not None
-    return best_notes
+    assert best_notes is not None and best_inv is not None
+    return best_inv, best_notes
 
 
 def build_candidates(

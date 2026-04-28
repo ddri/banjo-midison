@@ -31,7 +31,8 @@ class TestChooseVoicingPosition:
         # Candidate: V root close [67, 71, 74]
         # k=0: 0+4+7 = 11; k=-1: [55,59,62] -> 5+1+2 = 8
         # k=-1 wins
-        result = choose_voicing_position([[67, 71, 74]], [60, 64, 67])
+        inv_idx, result = choose_voicing_position([[67, 71, 74]], [60, 64, 67])
+        assert inv_idx == 0
         assert sorted(result) == [55, 59, 62]
 
     def test_picks_lowest_scoring_inversion_worked_example(self):
@@ -40,7 +41,8 @@ class TestChooseVoicingPosition:
         # 1st inv: [71,74,79] -> best k=-1 -> [59,62,67] score 3 <- winner
         # 2nd inv: [62,67,71] -> best k=0 score 6
         candidates = [[67, 71, 74], [71, 74, 79], [62, 67, 71]]
-        result = choose_voicing_position(candidates, [60, 64, 67])
+        inv_idx, result = choose_voicing_position(candidates, [60, 64, 67])
+        assert inv_idx == 1  # 1st inv wins (the worked example)
         assert sorted(result) == [59, 62, 67]
 
     def test_tie_break_prefers_smaller_abs_k(self):
@@ -49,7 +51,8 @@ class TestChooseVoicingPosition:
         # k=-1: [54] -> min(6,18) = 6
         # k=+1: [78] -> min(18,6) = 6
         # All k tie. Smaller |k| wins -> k=0 -> [66]
-        result = choose_voicing_position([[66]], [60, 72])
+        inv_idx, result = choose_voicing_position([[66]], [60, 72])
+        assert inv_idx == 0
         assert result == [66]
 
     def test_tie_break_prefers_smaller_inversion_index(self):
@@ -59,7 +62,8 @@ class TestChooseVoicingPosition:
         # Both reach score 0 at k=0. Tie-keys: (0,0,0) vs (1,0,0). Idx 0 wins.
         # The result is [60] (length 1), proving idx 0 was picked, not idx 1
         # (which would have returned [60, 60], length 2).
-        result = choose_voicing_position([[60], [60, 60]], [60])
+        inv_idx, result = choose_voicing_position([[60], [60, 60]], [60])
+        assert inv_idx == 0
         assert result == [60]
 
     def test_tie_break_signed_k_when_abs_k_ties(self):
@@ -68,7 +72,8 @@ class TestChooseVoicingPosition:
         # k=-1: [60] -> min(0, 24) = 0  <- best
         # k=+1: [84] -> min(24, 0) = 0  <- ties best
         # Tie at 0. |k|=1 for both. Signed k smaller -> k=-1 -> [60].
-        result = choose_voicing_position([[72]], [60, 84])
+        inv_idx, result = choose_voicing_position([[72]], [60, 84])
+        assert inv_idx == 0
         assert result == [60]
 
 

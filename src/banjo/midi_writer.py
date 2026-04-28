@@ -99,7 +99,11 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
                 parsed, key_pc, request.scale_type, request.octave,
                 spec.voicing, explicit_inversion,
             )
-            voiced = choose_voicing_position(candidates, previous_voiced)
+            chosen_inv, voiced = choose_voicing_position(candidates, previous_voiced)
+            # Update parsed.inversion so the resolved metadata reports the
+            # actually-chosen inversion (not the original parse value, which
+            # build_candidates did not mutate).
+            parsed.inversion = chosen_inv
         else:
             voiced = apply_voicing(list(chord.midi_notes), spec.voicing)
 
