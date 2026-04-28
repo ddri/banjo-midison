@@ -327,8 +327,11 @@ class TestBuildCandidates:
             voicing="close", explicit_inversion=True,
         )
         assert len(candidates) == 1
-        # V at 2nd inversion close = D-G-B = [62, 67, 71]
-        assert sorted(candidates[0]) == [62, 67, 71]
+        # V at 2nd inversion close at octave=4 = D-G-B with D rotated up = [74, 79, 83].
+        # build_chord applies inversion by rotating the lowest note up an octave
+        # (theory.py: `notes[0] += 12; notes.sort()`), so V's root-position [67,71,74]
+        # becomes [71,74,79] at 1st inv and [74,79,83] at 2nd inv.
+        assert sorted(candidates[0]) == [74, 79, 83]
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -768,9 +771,13 @@ Append to `TestVoiceLead`:
         )
         result = generate(request, tmp_path)
         v_notes = sorted(result.resolved[1]["midi"])
-        # V at 2nd inv close = [62, 67, 71]. Previous = [60, 64, 67].
-        # k=0: 2+0+4 = 6. k=-1: [50,55,59] -> 10+5+1 = 16. k=0 wins.
-        # Ensure result is at k=0.
+        # V at 2nd inv close (octave=4) = [74, 79, 83]. Previous = [60, 64, 67].
+        # build_candidates returns one candidate (inversion pinned to 2);
+        # choose_voicing_position then picks k:
+        #   k=0  [74,79,83]: 7+12+16 = 35
+        #   k=-1 [62,67,71]: 2+0+4   = 6  <- winner
+        #   k=-2 [50,55,59]: 10+5+1  = 16
+        # k=-1 wins. Inversion stayed at 2 (pinned), but k was still optimized.
         assert v_notes == [62, 67, 71]
         # Inversion preserved: pitch classes are D-G-B = {2, 7, 11}
         assert sorted(set(n % 12 for n in v_notes)) == [2, 7, 11]

@@ -46,3 +46,25 @@ class TestVoicings:
         assert apply_voicing([60], "close") == [60]
         assert apply_voicing([60], "drop2") == [60]
         assert apply_voicing([60], "rootless") == [60]
+
+
+class TestApplyVoicingPurity:
+    """
+    Voice leading depends on apply_voicing being a pure function of
+    (notes, voicing). If this regresses, voice-leading determinism breaks
+    silently. See spec: docs/superpowers/specs/2026-04-28-voice-leading-design.md
+    """
+
+    def test_same_input_same_output(self):
+        notes = [60, 64, 67, 71]
+        for voicing in ("close", "drop2", "drop3", "drop2and4", "spread", "rootless"):
+            r1 = apply_voicing(list(notes), voicing)
+            r2 = apply_voicing(list(notes), voicing)
+            assert r1 == r2, f"apply_voicing({notes!r}, {voicing!r}) not deterministic"
+
+    def test_input_not_mutated(self):
+        notes = [60, 64, 67, 71]
+        original = list(notes)
+        for voicing in ("close", "drop2", "drop3", "drop2and4", "spread", "rootless"):
+            apply_voicing(notes, voicing)
+            assert notes == original, f"apply_voicing mutated input under voicing={voicing!r}"

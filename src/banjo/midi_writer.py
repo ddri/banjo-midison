@@ -23,6 +23,7 @@ from banjo.theory import (
     pitch_class_name,
     build_chord,
 )
+from banjo.voice_leading import build_candidates, choose_voicing_position
 from banjo.voicings import VoicingName, apply_voicing
 
 TICKS_PER_BEAT = 480  # standard PPQN
@@ -54,6 +55,7 @@ class GenerationRequest:
     time_signature: str = "4/4"
     humanize: HumanizeSpec = field(default_factory=HumanizeSpec)
     seed: int | None = None
+    voice_lead: bool = False
     filename: str | None = None
     prompt_context: str | None = None
     generation_notes: str | None = None
@@ -81,14 +83,32 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
 
     # Resolve every chord into MIDI notes.
     resolved_chords: list[tuple[ChordSpec, ParsedNumeral, ResolvedChord, list[int]]] = []
+    previous_voiced: list[int] | None = None
     for spec in request.chords:
         parsed = parse_roman_numeral(spec.numeral)
+        # Track explicitness BEFORE overriding so voice leading respects user intent.
+        # spec.inversion=0 counts as explicit (user named root deliberately, per MCP
+        # schema "omit this" guidance); only None means "implicit, optimizer free to pick".
+        explicit_inversion = parsed.inversion > 0 or spec.inversion is not None
         if spec.inversion is not None:
-            # Override with explicit inversion from the spec.
             parsed.inversion = spec.inversion
         chord = build_chord(parsed, key_pc, request.scale_type, octave=request.octave)
-        voiced = apply_voicing(list(chord.midi_notes), spec.voicing)
+
+        if request.voice_lead and previous_voiced is not None:
+            candidates = build_candidates(
+                parsed, key_pc, request.scale_type, request.octave,
+                spec.voicing, explicit_inversion,
+            )
+            chosen_inv, voiced = choose_voicing_position(candidates, previous_voiced)
+            # Update parsed.inversion so the resolved metadata reports the
+            # actually-chosen inversion (not the original parse value, which
+            # build_candidates did not mutate).
+            parsed.inversion = chosen_inv
+        else:
+            voiced = apply_voicing(list(chord.midi_notes), spec.voicing)
+
         resolved_chords.append((spec, parsed, chord, voiced))
+        previous_voiced = voiced
 
     # Write the MIDI file.
     filename = request.filename or _auto_filename(request)

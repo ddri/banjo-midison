@@ -144,6 +144,19 @@ GENERATE_MIDI_PROGRESSION_SCHEMA = {
                 "Always set this when iterating on a request — same seed = same MIDI bytes."
             ),
         },
+        "voice_lead": {
+            "type": "boolean",
+            "default": False,
+            "description": (
+                "When true, after each chord is built and voiced, the chord's "
+                "inversion and octave register are jointly chosen to minimize "
+                "voice motion from the previous chord. Preserves the per-chord "
+                "voicing (drop2 stays drop2, etc.). Respects explicit inversions "
+                "(e.g. 'V64' or inversion=2) — those are pinned and only the "
+                "octave shift is optimized. Off by default; enabling it makes "
+                "consecutive chords flow smoothly instead of jumping registers."
+            ),
+        },
         "filename": {
             "type": "string",
             "description": (
@@ -297,6 +310,7 @@ def _build_generation_request(arguments: dict) -> GenerationRequest:
         time_signature=arguments.get("time_signature", "4/4"),
         humanize=humanize,
         seed=arguments.get("seed"),
+        voice_lead=bool(arguments.get("voice_lead", False)),
         filename=arguments.get("filename"),
         prompt_context=arguments.get("prompt_context"),
         generation_notes=arguments.get("generation_notes"),
