@@ -233,3 +233,29 @@ def test_list_tools_returns_two_tools():
     assert schemas["generate_midi_progression"]["required"] == [
         "key_center", "scale_type", "bpm", "chords",
     ]
+
+
+class TestVoiceLeadPlumbing:
+    def test_voice_lead_in_schema_with_default_false(self):
+        from banjo.mcp_server import GENERATE_MIDI_PROGRESSION_SCHEMA
+        prop = GENERATE_MIDI_PROGRESSION_SCHEMA["properties"].get("voice_lead")
+        assert prop is not None, "voice_lead missing from schema"
+        assert prop["type"] == "boolean"
+        assert prop["default"] is False
+
+    def test_handler_passes_voice_lead_true_through(self):
+        from banjo.mcp_server import _build_generation_request
+        req = _build_generation_request({
+            "key_center": "C", "scale_type": "major", "bpm": 120,
+            "chords": [{"numeral": "I", "duration_beats": 4}],
+            "voice_lead": True,
+        })
+        assert req.voice_lead is True
+
+    def test_handler_defaults_voice_lead_to_false(self):
+        from banjo.mcp_server import _build_generation_request
+        req = _build_generation_request({
+            "key_center": "C", "scale_type": "major", "bpm": 120,
+            "chords": [{"numeral": "I", "duration_beats": 4}],
+        })
+        assert req.voice_lead is False
