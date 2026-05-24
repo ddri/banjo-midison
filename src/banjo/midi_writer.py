@@ -36,6 +36,7 @@ class ChordSpec:
     duration_beats: float
     inversion: int | None = None       # overrides parsed inversion if set
     voicing: VoicingName = "close"
+    rootless: bool = False
 
 
 @dataclass
@@ -59,6 +60,7 @@ class GenerationRequest:
     filename: str | None = None
     prompt_context: str | None = None
     generation_notes: str | None = None
+    max_octave: int = 9
 
 
 @dataclass
@@ -94,6 +96,7 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
             parsed.inversion = spec.inversion
         chord = build_chord(parsed, key_pc, request.scale_type, octave=request.octave)
 
+        # Step 1-2: apply voicing (voice-led or direct)
         if request.voice_lead and previous_voiced is not None:
             candidates = build_candidates(
                 parsed, key_pc, request.scale_type, request.octave,
@@ -106,6 +109,13 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
             parsed.inversion = chosen_inv
         else:
             voiced = apply_voicing(list(chord.midi_notes), spec.voicing)
+
+        # Step 3: rootless — strip root after voice leading so VL sees the full chord
+        if spec.rootless:
+            voiced = apply_voicing(voiced, "rootless")
+
+        # Step 4: max_octave clamp — hard ceiling applied last
+        voiced = _clamp_to_max_octave(voiced, request.max_octave)
 
         resolved_chords.append((spec, parsed, chord, voiced))
         previous_voiced = voiced
@@ -200,6 +210,20 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
         resolved=resolved_metadata,
         total_beats=current_beat,
     )
+
+
+def _clamp_to_max_octave(notes: list[int], max_octave: int) -> list[int]:
+    """Shift notes down by whole octaves until the lowest note is within max_octave.
+
+    Uses Ableton convention: C3 = MIDI 60, so octave N lowest note = 12*(N+2).
+    """
+    if not notes:
+        return notes
+    lowest_octave = (min(notes) // 12) - 2  # Ableton: C3=60 → (60//12)-2 = 3
+    if lowest_octave > max_octave:
+        shift = (lowest_octave - max_octave) * 12
+        return [n - shift for n in notes]
+    return notes
 
 
 def _auto_filename(request: GenerationRequest) -> str:
