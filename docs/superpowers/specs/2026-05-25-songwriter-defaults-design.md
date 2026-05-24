@@ -33,9 +33,11 @@ The underlying `_rootless()` function in `voicings.py` is unchanged. The rootles
 
 `voicing: spread` with `rootless: true` is a validation error. Spread is defined as "root dropped an octave below the upper structure" — removing the root after spread produces a result with no useful interpretation (effectively close position, minus one note). Raise a `ValueError` in `_build_generation_request` with the message: *"rootless: true cannot be combined with voicing: spread — spread is defined by its bass root."*
 
+`ChordSpec` and `GenerationRequest` are plain Python dataclasses (not Pydantic models), so there is no framework validation layer. All validation runs in `_build_generation_request` against the raw dict. Both cross-field checks belong there.
+
 #### Migration error for stale callers
 
-A caller passing `voicing: "rootless"` (old API) will now hit a generic enum validation error. Add an explicit pre-check in `_build_generation_request` that detects this and raises: *"'rootless' is no longer a voicing option — pass rootless: true alongside your chosen voicing (e.g. voicing: 'close', rootless: true)."*
+A caller passing `voicing: "rootless"` (old API) will now hit a generic enum validation error. Add an explicit pre-check in `_build_generation_request` — inspect each chord's raw `voicing` string before constructing `ChordSpec`, and raise: *"'rootless' is no longer a voicing option — pass rootless: true alongside your chosen voicing (e.g. voicing: 'close', rootless: true)."* This fires before any enum comparison, so the targeted message always wins.
 
 ### 2. Lower the default octave; add max_octave clamp
 
