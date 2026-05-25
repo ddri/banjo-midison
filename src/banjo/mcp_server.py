@@ -123,8 +123,9 @@ GENERATE_MIDI_PROGRESSION_SCHEMA = {
             "maximum": 9,
             "default": 3,
             "description": (
-                "Root octave. Follows Ableton convention: C3 = MIDI 60 (middle C). "
-                "Default 3 puts chords in a comfortable mid-low piano register. "
+                "Root octave in the theory engine's numbering: octave 4 = Ableton C3 "
+                "(MIDI 60, middle C). Default 3 places the root one octave below middle C — "
+                "a comfortable comping register below melody range. "
                 "For most songwriting, stay between 2 and 4. "
                 "Above 5 puts chords in melody territory."
             ),

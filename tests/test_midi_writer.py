@@ -362,7 +362,7 @@ class TestVoiceLead:
             key_center="C", scale_type="major", bpm=120,
             chords=[
                 ChordSpec(numeral="I7", duration_beats=4, voicing="close"),
-                ChordSpec(numeral="ii7", duration_beats=4, voicing="rootless"),
+                ChordSpec(numeral="ii7", duration_beats=4, rootless=True),
             ],
             voice_lead=True,
         )
