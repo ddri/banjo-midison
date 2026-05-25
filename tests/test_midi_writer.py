@@ -171,16 +171,16 @@ class TestMidiWriter:
         assert min(result.resolved[0]["midi"]) == 48
 
     def test_max_octave_clamps_chord_one_octave_above(self, tmp_output):
-        """A chord one octave above max_octave is shifted down by one octave."""
+        """A chord one Ableton octave above max_octave is shifted down by one octave."""
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[ChordSpec("I", 4)],
-            octave=6, max_octave=5,
+            octave=7, max_octave=5,
             filename="test_max_octave_clamp_one",
         )
         result = generate(request, tmp_output)
-        # Root C at octave 6 = MIDI (6+1)*12 = 84; max_octave 5 means lowest octave
-        # = (84//12)-2 = 5, which equals max_octave, no shift
+        # theory octave=7 → root MIDI (7+1)*12=96, Ableton octave (96//12)-2=6 > max_octave=5
+        # shift = (6-5)*12=12 → root at MIDI 84
         assert min(result.resolved[0]["midi"]) == 84
 
     def test_max_octave_clamps_chord_several_octaves_above(self, tmp_output):
@@ -197,16 +197,16 @@ class TestMidiWriter:
         assert min(result.resolved[0]["midi"]) == 84
 
     def test_max_octave_does_not_clamp_chord_at_limit(self, tmp_output):
-        """A chord at exactly max_octave passes through unchanged."""
+        """A chord exactly at max_octave (Ableton convention) passes through unchanged."""
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[ChordSpec("I", 4)],
-            octave=5, max_octave=5,
+            octave=6, max_octave=5,
             filename="test_max_octave_no_clamp",
         )
         result = generate(request, tmp_output)
-        # Root C at octave 5 = MIDI (5+1)*12 = 72; octave = (72//12)-2 = 4 < max_octave 5, no shift
-        assert min(result.resolved[0]["midi"]) == 72
+        # theory octave=6 → root MIDI (6+1)*12=84, Ableton octave (84//12)-2=5 = max_octave → no shift
+        assert min(result.resolved[0]["midi"]) == 84
 
     def test_max_octave_default_is_5(self):
         """GenerationRequest.max_octave defaults to 5."""
