@@ -1,10 +1,10 @@
 # Banjo Midison
 
-Banjo Midison is a MIDI chord composition tool for songwriters and producers. It allows you to chat with your choice of AI model about chord progressions and harmonic compositions, and have it generate MIDI files for you to use in your Digital Audio Workstation (DAW). 
+A MIDI chord progression generator for solo songwriters and producers. You describe what you want — a mood, a reference artist, a harmonic idea — and Banjo generates MIDI files you can drag straight into your DAW.
 
-It is not a DAW, nor is it a plugin. It is a standalone application that runs in the background and communicates with your MCP-compatible AI assistant via the Model Context Protocol (MCP). 
+It runs as an MCP server, which means your AI assistant (Claude Desktop, Claude Code, or any MCP-compatible host) becomes the interface. You talk to Claude, Claude calls Banjo, and a `.mid` file appears in your music folder alongside a `.md` document explaining what was generated and why.
 
-The idea is not to magically make cookie-cutter AI music, but to use AI as a collaborator to allow a songwriter to talk through chord ideas, progressions, and harmonic concepts with an AI assistant, and have it generate MIDI files (as well as a document of related concepts and chord charts) as part of the creative process.
+It is not a DAW. It is not a plugin. It generates self-contained MIDI clips with the root always in the chord, in a register that sits well in a mix — not jazz piano voicings designed for a band that has a bassist.
 
 ## Setup
 
@@ -18,7 +18,7 @@ uv pip install -e ".[dev]"
 ## Run the test suite
 
 ```bash
-pytest
+uv run pytest
 ```
 
 118 tests covering the parser, chord builder, voicings, voice leading, MIDI writer, config, and MCP server.
@@ -27,85 +27,35 @@ pytest
 
 ```bash
 banjo-corpus
-# or: python -m banjo.corpus
+# or: uv run python -m banjo.corpus
 ```
 
-Writes 12 `.mid` files plus `.md` sidecars to `./output/` by default. Drag them into your DAW and audition each one to verify the theory engine.
-
-Override the output directory:
+Writes 12 `.mid` files plus `.md` sidecars to `./output/` by default. Drag them into your DAW to hear what the theory engine produces across different styles and voicings.
 
 ```bash
 banjo-corpus --output-dir ~/Music/banjo-test
 ```
 
-## Corpus contents
-
-| # | File | What it tests |
-|---|------|---------------|
-| 01 | ii-V-I in C major, close voicings | Sanity check |
-| 02 | Neo-soul progression in F, rootless | Extensions, rootless voicing (rootless: true) |
-| 03 | Neo-soul in Eb with V7/vi | Secondary dominants, drop-2 |
-| 04 | I-bVII-IV-I in G | Modal mixture (mixolydian borrow) |
-| 05 | D dorian i9-IV9 vamp | Modal harmony |
-| 06 | A minor with V7/iv | Secondary dominant in minor |
-| 07 | ii-V7b9-I in C | Altered dominant |
-| 08 | Spread voicing test in C | Voicing transformation |
-| 09 | E mixolydian funk | Modal + extensions |
-| 10 | Dm7 - Em7b5 - A7b9 - Dm7 | Half-diminished |
-| 11 | Drop-2-and-4 in Bb | Voicing transformation |
-| 12 | C - Eb - Ab - Db chromatic | Heavy modal mixture |
-
-## Architecture
-
-```
-src/banjo/
-├── theory.py        # Roman numeral parser, scales, chord builder
-├── voicings.py      # close, drop2, drop3, drop2and4, spread
-├── midi_writer.py   # mido wrapper, sidecar generation
-└── corpus.py        # test corpus CLI
-```
-
-## Roman numeral grammar (v1)
-
-Supported:
-
-- Triad qualities by case: `I` (major), `i` (minor), `vii°` or `viio` (diminished), `III+` (augmented)
-- Sevenths and extensions: `7`, `maj7`, `9`, `11`, `13`, `maj9`, `maj13`
-- Alterations: `b5`, `#5`, `b9`, `#9`, `#11`, `b13`
-- Modal mixture / chromatic roots: `bVII`, `bIII`, `bVI`, `bII`, `#IV`
-- Secondary dominants and applied chords: `V/vi`, `V7/ii`, `vii°/V`
-- Half-diminished: `iiø` (treated as diminished triad + minor 7)
-- Inversions via figured-bass shorthand: `V6` (first), `V64` (second), `V42` (third of seventh chord)
-- Inversions also settable explicitly via `ChordSpec.inversion`
+| # | What it demonstrates |
+|---|----------------------|
+| 01 | ii-V-I in C major, close voicings — sanity check |
+| 02 | Neo-soul in F with rootless voicing |
+| 03 | Neo-soul in Eb with secondary dominant (V7/vi), drop-2 |
+| 04 | I-bVII-IV-I in G — modal mixture (mixolydian borrow) |
+| 05 | D dorian i9-IV9 vamp — modal harmony |
+| 06 | A minor with V7/iv — secondary dominant in minor |
+| 07 | ii-V7b9-I in C — altered dominant |
+| 08 | Spread voicing in C |
+| 09 | E mixolydian funk — modal + extensions |
+| 10 | Dm7 - Em7b5 - A7b9 - Dm7 — half-diminished |
+| 11 | Drop-2-and-4 in Bb |
+| 12 | C - Eb - Ab - Db — heavy chromatic modal mixture |
 
 ## MCP server
 
-`banjo-mcp` is a stdio-transport MCP server that exposes the generator to any
-MCP host — Claude Desktop, Claude Code, Cursor, Continue, or anything else
-that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
+`banjo-mcp` is a stdio-transport MCP server. Point your MCP host at it and the tools become available to your AI assistant.
 
-### Tools
-
-- **`generate_midi_progression`** — render a Roman numeral progression to MIDI.
-  Required: `key_center`, `scale_type`, `bpm`, `chords`. Optional: `octave` (default 3),
-  `max_octave` (default 5), `time_signature`, `humanize`, `seed`, `voice_lead`,
-  `filename`, `prompt_context`, `generation_notes`.
-  Returns `{filepath, sidecar_path, resolved, total_beats}`.
-
-  Per-chord options: `voicing` (`close`, `drop2`, `drop3`, `drop2and4`, `spread`),
-  `rootless` (bool, default false — omit root; not valid with `spread`), `inversion`.
-
-- **`set_output_directory`** — persist the output directory to
-  `~/.banjo/config.json`. Default is `~/Music/banjo/`, created on first write.
-
-### Voice leading
-
-When `voice_lead: true` is passed, each chord after the first has its inversion and octave register chosen to minimize voice motion from the previous chord. The per-chord `voicing` is preserved (drop2 stays drop2, etc.), and explicit inversions — whether via numeral form (`V64`) or the `inversion` field — are respected. Off by default; enabling it makes consecutive chords flow smoothly instead of jumping registers.
-
-### Connecting to an MCP host
-
-The server runs over stdio. Point your MCP host at the `banjo-mcp` entry
-point. The exact config depends on your host:
+### Connecting
 
 **Claude Desktop** — add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -119,7 +69,7 @@ point. The exact config depends on your host:
 }
 ```
 
-**Claude Code** — add to your project or global settings:
+**Claude Code** — add to your project or global MCP settings:
 
 ```json
 {
@@ -131,32 +81,109 @@ point. The exact config depends on your host:
 }
 ```
 
-**Other hosts** (Cursor, Continue, etc.) — consult your host's MCP
-documentation. The command is always `.venv/bin/banjo-mcp` from the repo root.
+**Other hosts** (Cursor, Continue, etc.) — the command is always `.venv/bin/banjo-mcp` from the repo root.
 
-After configuring, restart your MCP host. The two tools should appear.
+Restart your MCP host after configuring. The two tools will appear.
+
+### Tools
+
+**`generate_midi_progression`**
+
+Generates a `.mid` file and a `.md` sidecar from a Roman numeral progression.
+
+Required fields: `key_center`, `scale_type`, `bpm`, `chords`.
+
+Top-level optional fields:
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `octave` | `3` | Root octave. Octave 4 = Ableton's C3 (MIDI 60, middle C). Default 3 places roots one octave below middle C — a comfortable comping register. |
+| `max_octave` | `5` | Hard ceiling on chord register. Any chord whose lowest note sits above this octave is shifted down by whole octaves. Applied after voice leading. |
+| `time_signature` | `"4/4"` | Time signature as `"N/D"`. |
+| `voice_lead` | `false` | When true, each chord's inversion and octave are chosen to minimise voice motion from the previous chord. |
+| `humanize` | off | Velocity and timing randomisation. Fields: `velocity_range`, `timing_ms`, `base_velocity` (default 80). |
+| `seed` | — | Integer seed for reproducible humanization. Set this when iterating on a progression so you get identical MIDI bytes. |
+| `filename` | auto | Output filename without `.mid`. Auto-generated from key + progression + timestamp if omitted. |
+| `prompt_context` | — | Written verbatim into the `.md` sidecar. Records what you asked for. |
+| `generation_notes` | — | Harmonic or stylistic notes about the choices made. Also written into the sidecar. |
+
+Per-chord fields (inside the `chords` array):
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `numeral` | required | Roman numeral — see grammar below. |
+| `duration_beats` | required | Duration in beats. |
+| `voicing` | `"close"` | How chord tones are arranged. See voicings below. |
+| `rootless` | `false` | Omit the root note. Use this when a separate bass track covers the root. Not valid with `voicing: "spread"`. |
+| `inversion` | — | Override inversion: 0 = root, 1 = first, 2 = second, 3 = third. |
+
+**`set_output_directory`**
+
+Sets where MIDI files are written. Persisted to `~/.banjo/config.json` across restarts. Default is `~/Music/banjo/`, created on first write.
+
+### Voicings
+
+| Name | Sound |
+|------|-------|
+| `close` | Stacked thirds, compact. Default. |
+| `drop2` | Second-from-top voice dropped an octave. Slightly more open and warm. |
+| `drop3` | Third-from-top voice dropped an octave. Fuller spread. |
+| `drop2and4` | Second and fourth from top dropped an octave. Wide and open. |
+| `spread` | Root dropped an octave below the upper structure. Good for a strong bass note with upper chord tones above. |
+
+All voicings include the root. To omit the root, set `rootless: true` on the chord.
+
+### Voice leading
+
+When `voice_lead: true`, each chord after the first has its inversion and octave register chosen to minimise semitone movement from the previous chord. The pipeline is:
+
+1. Build chord (close position)
+2. Apply voicing (`drop2`, `spread`, etc.)
+3. Apply voice leading (choose inversion + register)
+4. Apply `rootless` if set
+5. Apply `max_octave` clamp
+
+Explicit inversions — via numeral form (`V64`) or the `inversion` field — are pinned and not changed by voice leading.
+
+### Output files
+
+Every generation produces two files:
+
+- `<name>.mid` — the MIDI clip, one track, all chords
+- `<name>.md` — the prompt context, generation notes, parameters, and a chord-by-chord table of resolved pitches, voicing, and inversion
 
 ### Logs
 
-Server logs go to stderr at `INFO` level. To inspect them while developing:
-
 ```bash
 .venv/bin/banjo-mcp 2> /tmp/banjo-mcp.log
-# (in another shell) tail -f /tmp/banjo-mcp.log
+tail -f /tmp/banjo-mcp.log
 ```
 
-### Output directory
+## Roman numeral grammar
 
-Files land in `~/Music/banjo/` by default. Change it via the
-`set_output_directory` tool:
+- **Triad qualities:** `I` (major), `i` (minor), `vii°` / `viio` (diminished), `III+` (augmented)
+- **Extensions:** `7`, `maj7`, `9`, `11`, `13`, `maj9`, `maj13`
+- **Alterations:** `b5`, `#5`, `b9`, `#9`, `#11`, `b13`
+- **Chromatic roots / modal mixture:** `bVII`, `bIII`, `bVI`, `bII`, `#IV`
+- **Secondary dominants:** `V/vi`, `V7/ii`, `vii°/V`
+- **Half-diminished:** `iiø`
+- **Inversions:** `V6` (first), `V64` (second), `V42` (third of seventh chord)
 
-> "Set the banjo output directory to ~/Music/Ableton/banjo-clips"
+Supported modes: major, minor, dorian, phrygian, lydian, mixolydian, locrian, lydian_dominant, phrygian_dominant.
 
-That call writes the path to `~/.banjo/config.json` and persists across
-restarts.
+## Architecture
 
-### About the author
+```
+src/banjo/
+├── theory.py         # Roman numeral parser, modes, chord builder
+├── voicings.py       # Voicing transformations (close, drop2, drop3, drop2and4, spread)
+├── voice_leading.py  # Inversion + register optimisation
+├── midi_writer.py    # MIDI output, sidecar generation, generation pipeline
+├── mcp_server.py     # MCP stdio server
+├── corpus.py         # Audition corpus CLI
+└── config.py         # Persistent config (~/.banjo/config.json)
+```
 
-The project was created by [David Ryan](http://davidryan.tech), from the Australian production duo [Trovaire](https://www.wearetrovaire.com), as an assistant for analysis and composition. And not just because he's the drummer. 
+## About
 
-If you find this useful, say hello, and be sure to share any music you make with it.
+Created by [David Ryan](http://davidryan.tech) of the Australian production duo [Trovaire](https://www.wearetrovaire.com) as a composition and harmonic analysis tool. If you find it useful, say hello and share what you make with it.
