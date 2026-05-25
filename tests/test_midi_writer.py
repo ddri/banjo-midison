@@ -134,6 +134,31 @@ class TestMidiWriter:
         first_chord_midi = result.resolved[0]["midi"]
         assert min(first_chord_midi) % 12 == 4
 
+    def test_rootless_false_by_default(self, tmp_output):
+        """ChordSpec.rootless defaults to False; all notes including root are present."""
+        request = GenerationRequest(
+            key_center="C", scale_type="major", bpm=120,
+            chords=[ChordSpec("I", 4)],  # C major triad: C E G
+            octave=3, filename="test_rootless_default",
+        )
+        result = generate(request, tmp_output)
+        midi_notes = result.resolved[0]["midi"]
+        # C major triad in octave 3: C=48, E=52, G=55
+        assert 48 in midi_notes  # root C must be present
+
+    def test_rootless_true_strips_root(self, tmp_output):
+        """ChordSpec with rootless=True omits the root note."""
+        request = GenerationRequest(
+            key_center="C", scale_type="major", bpm=120,
+            chords=[ChordSpec("Imaj7", 4, rootless=True)],  # Cmaj7: C E G B
+            octave=3, filename="test_rootless_strips",
+        )
+        result = generate(request, tmp_output)
+        midi_notes = result.resolved[0]["midi"]
+        # Root C=48 (octave 3) must be absent; chord should have 3 notes (E G B)
+        assert 48 not in midi_notes
+        assert len(midi_notes) == 3
+
 
 class TestVoiceLead:
     def test_voice_lead_defaults_false_unchanged_behavior(self, tmp_path):
@@ -412,28 +437,3 @@ class TestVoiceLead:
         assert sorted(set(n % 12 for n in v_notes)) == [2, 7, 11]
         # Verify the bass note IS the root (G = pc 7), not 3rd or 5th
         assert min(v_notes) % 12 == 7
-
-    def test_rootless_false_by_default(self, tmp_output):
-        """ChordSpec.rootless defaults to False; all notes including root are present."""
-        request = GenerationRequest(
-            key_center="C", scale_type="major", bpm=120,
-            chords=[ChordSpec("I", 4)],  # C major triad: C E G
-            octave=3, filename="test_rootless_default",
-        )
-        result = generate(request, tmp_output)
-        midi_notes = result.resolved[0]["midi"]
-        # C major triad in octave 3: C=48, E=52, G=55
-        assert 48 in midi_notes  # root C must be present
-
-    def test_rootless_true_strips_root(self, tmp_output):
-        """ChordSpec with rootless=True omits the root note."""
-        request = GenerationRequest(
-            key_center="C", scale_type="major", bpm=120,
-            chords=[ChordSpec("Imaj7", 4, rootless=True)],  # Cmaj7: C E G B
-            octave=3, filename="test_rootless_strips",
-        )
-        result = generate(request, tmp_output)
-        midi_notes = result.resolved[0]["midi"]
-        # Root C3=60 must be absent; chord should have 3 notes (E G B)
-        assert 60 not in midi_notes
-        assert len(midi_notes) == 3
