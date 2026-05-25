@@ -111,7 +111,7 @@ class TestBuildCandidates:
         for cand in candidates:
             assert min(cand) % 12 in {7, 11, 2, 5}
 
-    def test_rootless_seventh_yields_three_candidates(self):
+    def test_seventh_chord_voice_leading_yields_four_candidates(self):
         # Under the new pipeline, voice leading sees the full chord (including root).
         # Rootless is applied AFTER voice leading. So for a 7th chord with close voicing,
         # build_candidates should produce 4 candidates (one per inversion of the 4-note chord).
