@@ -112,16 +112,16 @@ class TestBuildCandidates:
             assert min(cand) % 12 in {7, 11, 2, 5}
 
     def test_rootless_seventh_yields_three_candidates(self):
-        # I7 rootless: N (post-voicing) = 3, so candidates {0, 1, 2}
-        parsed = parse_roman_numeral("I7")
+        # Under the new pipeline, voice leading sees the full chord (including root).
+        # Rootless is applied AFTER voice leading. So for a 7th chord with close voicing,
+        # build_candidates should produce 4 candidates (one per inversion of the 4-note chord).
+        parsed = parse_roman_numeral("Imaj7")
         candidates = build_candidates(
             parsed, parse_pitch_class("C"), "major", octave=4,
-            voicing="rootless", explicit_inversion=False,
+            voicing="close", explicit_inversion=False,
         )
-        assert len(candidates) == 3
-        # Each candidate has 3 notes (root dropped after inversion)
-        for cand in candidates:
-            assert len(cand) == 3
+        # Imaj7 has 4 notes → 4 inversion candidates
+        assert len(candidates) == 4
 
     def test_explicit_inversion_yields_single_candidate(self):
         # V64 with explicit_inversion=True -> candidate set is {2} only

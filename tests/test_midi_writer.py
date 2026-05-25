@@ -64,7 +64,7 @@ class TestMidiWriter:
             key_center="F",
             scale_type="major",
             bpm=78,
-            chords=[ChordSpec("Imaj9", 4, voicing="rootless")],
+            chords=[ChordSpec("Imaj9", 4, rootless=True)],
             filename="test_sidecar",
             prompt_context="User asked for a neo-soul vibe.",
             generation_notes="Rootless voicing keeps it light.",
