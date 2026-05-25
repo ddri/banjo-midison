@@ -97,9 +97,12 @@ GENERATE_MIDI_PROGRESSION_SCHEMA = {
                         "enum": ["close", "drop2", "drop3", "drop2and4", "spread"],
                         "default": "close",
                         "description": (
-                            "Voicing transformation. 'close' = stack of thirds. "
-                            "'drop2' = 2nd-from-top dropped an octave (jazz piano staple). "
-                            "'spread' = wide voicing for piano LH/RH separation."
+                            "Voicing transformation applied to the chord. "
+                            "'close' — stacked thirds, compact and clear. "
+                            "'drop2' — second-from-top voice dropped an octave, slightly warmer. "
+                            "'drop3' — third-from-top voice dropped an octave, fuller spread. "
+                            "'drop2and4' — second and fourth from top dropped an octave, wide and open. "
+                            "'spread' — root dropped an octave below the upper structure."
                         ),
                     },
                     "rootless": {
@@ -118,8 +121,13 @@ GENERATE_MIDI_PROGRESSION_SCHEMA = {
             "type": "integer",
             "minimum": 0,
             "maximum": 9,
-            "default": 4,
-            "description": "Octave for the root note. 4 = middle-C octave (C4).",
+            "default": 3,
+            "description": (
+                "Root octave. Follows Ableton convention: C3 = MIDI 60 (middle C). "
+                "Default 3 puts chords in a comfortable mid-low piano register. "
+                "For most songwriting, stay between 2 and 4. "
+                "Above 5 puts chords in melody territory."
+            ),
         },
         "time_signature": {
             "type": "string",
@@ -170,10 +178,10 @@ GENERATE_MIDI_PROGRESSION_SCHEMA = {
             "maximum": 9,
             "default": 5,
             "description": (
-                "When set, clamps all note pitches to this octave or lower, shifting "
-                "notes down by octaves as needed. Useful for keeping voicings in a "
-                "specific range (e.g., max_octave=4 for tight piano voicings). "
-                "Defaults to 5 (no clamping in typical usage)."
+                "Hard ceiling on chord register (Ableton convention). "
+                "Any chord whose lowest note falls above this octave is shifted down "
+                "by whole octaves until it is at or below max_octave. "
+                "Applied after voice leading. Default 5 prevents runaway high voicings."
             ),
         },
         "filename": {
@@ -221,13 +229,14 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="generate_midi_progression",
             description=(
-                "Generate a MIDI file from a Roman numeral chord progression. "
+                "Generate a MIDI chord progression for a solo producer or songwriter "
+                "to load into a DAW. Chords are self-contained — the root is always "
+                "included unless rootless is explicitly set to true. "
                 "Returns the MIDI file path, sidecar markdown path, resolved chord "
                 "metadata (per-chord pitches, voicing, inversion), and total duration. "
-                "Use this whenever the user wants a chord progression rendered as a MIDI "
-                "clip suitable for dragging into a DAW. The generator handles secondary "
-                "dominants, modal mixture, half-diminished chords, alterations, and "
-                "six voicing styles — see the inputSchema for the full grammar."
+                "Handles secondary dominants, modal mixture, half-diminished chords, "
+                "alterations, and five voicing styles — see the inputSchema for the full grammar. "
+                "Default octave 3 and max_octave 5 keep chords in a comfortable piano register."
             ),
             inputSchema=GENERATE_MIDI_PROGRESSION_SCHEMA,
         ),
