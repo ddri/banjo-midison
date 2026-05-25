@@ -109,9 +109,9 @@ GENERATE_MIDI_PROGRESSION_SCHEMA = {
                         "type": "boolean",
                         "default": False,
                         "description": (
-                            "When true, omit the root note from the voicing "
-                            "(pianist's left-hand voicing when a bassist plays the root). "
-                            "Cannot be combined with voicing='spread'."
+                            "Omit the root note from the chord. Only use this when a separate "
+                            "bass instrument is playing the root — not appropriate for solo piano "
+                            "or standalone DAW clips. Cannot be combined with voicing: spread."
                         ),
                     },
                 },
