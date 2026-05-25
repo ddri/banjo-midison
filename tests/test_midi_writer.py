@@ -159,6 +159,63 @@ class TestMidiWriter:
         assert 48 not in midi_notes
         assert len(midi_notes) == 3
 
+    def test_default_octave_is_3(self, tmp_output):
+        """GenerationRequest.octave defaults to 3."""
+        request = GenerationRequest(
+            key_center="C", scale_type="major", bpm=120,
+            chords=[ChordSpec("I", 4)],
+            filename="test_default_octave",
+        )
+        result = generate(request, tmp_output)
+        # C major triad at octave 3: root C = MIDI 48
+        assert min(result.resolved[0]["midi"]) == 48
+
+    def test_max_octave_clamps_chord_one_octave_above(self, tmp_output):
+        """A chord one octave above max_octave is shifted down by one octave."""
+        request = GenerationRequest(
+            key_center="C", scale_type="major", bpm=120,
+            chords=[ChordSpec("I", 4)],
+            octave=6, max_octave=5,
+            filename="test_max_octave_clamp_one",
+        )
+        result = generate(request, tmp_output)
+        # Root C at octave 6 = MIDI (6+1)*12 = 84; max_octave 5 means lowest octave
+        # = (84//12)-2 = 5, which equals max_octave, no shift
+        assert min(result.resolved[0]["midi"]) == 84
+
+    def test_max_octave_clamps_chord_several_octaves_above(self, tmp_output):
+        """A chord several octaves above max_octave is shifted to land at max_octave."""
+        request = GenerationRequest(
+            key_center="C", scale_type="major", bpm=120,
+            chords=[ChordSpec("I", 4)],
+            octave=8, max_octave=5,
+            filename="test_max_octave_clamp_many",
+        )
+        result = generate(request, tmp_output)
+        # Root C at octave 8 = MIDI (8+1)*12 = 108; octave = (108//12)-2 = 7
+        # 7 > 5, so shift down (7-5)*12 = 24 → root at MIDI 84
+        assert min(result.resolved[0]["midi"]) == 84
+
+    def test_max_octave_does_not_clamp_chord_at_limit(self, tmp_output):
+        """A chord at exactly max_octave passes through unchanged."""
+        request = GenerationRequest(
+            key_center="C", scale_type="major", bpm=120,
+            chords=[ChordSpec("I", 4)],
+            octave=5, max_octave=5,
+            filename="test_max_octave_no_clamp",
+        )
+        result = generate(request, tmp_output)
+        # Root C at octave 5 = MIDI (5+1)*12 = 72; octave = (72//12)-2 = 4 < max_octave 5, no shift
+        assert min(result.resolved[0]["midi"]) == 72
+
+    def test_max_octave_default_is_5(self):
+        """GenerationRequest.max_octave defaults to 5."""
+        request = GenerationRequest(
+            key_center="C", scale_type="major", bpm=120,
+            chords=[ChordSpec("I", 4)],
+        )
+        assert request.max_octave == 5
+
 
 class TestVoiceLead:
     def test_voice_lead_defaults_false_unchanged_behavior(self, tmp_path):
@@ -170,6 +227,7 @@ class TestVoiceLead:
                 ChordSpec(numeral="I", duration_beats=4),
                 ChordSpec(numeral="V", duration_beats=4),
             ],
+            octave=4,
         )
         result = generate(request, tmp_path)
         assert sorted(result.resolved[1]["midi"]) == [67, 71, 74]
@@ -184,6 +242,7 @@ class TestVoiceLead:
                 ChordSpec(numeral="V", duration_beats=4),
             ],
             voice_lead=True,
+            octave=4,
         )
         result = generate(request, tmp_path)
         assert sorted(result.resolved[1]["midi"]) == [59, 62, 67]
@@ -257,6 +316,7 @@ class TestVoiceLead:
                 ChordSpec(numeral="V64", duration_beats=4),
             ],
             voice_lead=True,
+            octave=4,
         )
         result = generate(request, tmp_path)
         v_notes = sorted(result.resolved[1]["midi"])
@@ -374,6 +434,7 @@ class TestVoiceLead:
                 ChordSpec(numeral="V", duration_beats=4, inversion=1),
             ],
             voice_lead=True,
+            octave=4,
         )
         result = generate(request, tmp_path)
         v_notes = sorted(result.resolved[1]["midi"])
@@ -424,6 +485,7 @@ class TestVoiceLead:
                 ChordSpec(numeral="V", duration_beats=4, inversion=0),
             ],
             voice_lead=True,
+            octave=4,
         )
         result = generate(request, tmp_path)
         v_notes = sorted(result.resolved[1]["midi"])

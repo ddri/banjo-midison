@@ -52,7 +52,7 @@ class GenerationRequest:
     scale_type: str
     bpm: int
     chords: list[ChordSpec]
-    octave: int = 4
+    octave: int = 3
     time_signature: str = "4/4"
     humanize: HumanizeSpec = field(default_factory=HumanizeSpec)
     seed: int | None = None
@@ -60,7 +60,7 @@ class GenerationRequest:
     filename: str | None = None
     prompt_context: str | None = None
     generation_notes: str | None = None
-    max_octave: int = 9
+    max_octave: int = 5
 
 
 @dataclass
