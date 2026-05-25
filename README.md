@@ -1,10 +1,10 @@
 # Banjo Midison
 
-A MIDI chord progression generator for solo songwriters and producers. You describe what you want — a mood, a reference artist, a harmonic idea — and Banjo generates MIDI files you can drag straight into your DAW.
+A MIDI chord progression generator for solo songwriters and producers. You describe what you want (such as a mood, a reference artist, a harmonic idea) and Banjo generates MIDI files you can drag straight into your DAW.
 
 It runs as an MCP server, which means your AI assistant (Claude Desktop, Claude Code, or any MCP-compatible host) becomes the interface. You talk to Claude, Claude calls Banjo, and a `.mid` file appears in your music folder alongside a `.md` document explaining what was generated and why.
 
-It is not a DAW. It is not a plugin. It generates self-contained MIDI clips with the root always in the chord, in a register that sits well in a mix — not jazz piano voicings designed for a band that has a bassist.
+It is not a DAW. It is not a plugin. It generates self-contained MIDI clips with the root always in the chord, in a register that sits well in a mix.
 
 ## Setup
 
@@ -143,7 +143,7 @@ When `voice_lead: true`, each chord after the first has its inversion and octave
 4. Apply `rootless` if set
 5. Apply `max_octave` clamp
 
-Explicit inversions — via numeral form (`V64`) or the `inversion` field — are pinned and not changed by voice leading.
+Explicit inversions (via numeral form (`V64`) or the `inversion` field) are pinned and not changed by voice leading.
 
 ### Output files
 
