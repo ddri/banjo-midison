@@ -94,14 +94,21 @@ GENERATE_MIDI_PROGRESSION_SCHEMA = {
                     },
                     "voicing": {
                         "type": "string",
-                        "enum": ["close", "drop2", "drop3", "drop2and4", "spread", "rootless"],
+                        "enum": ["close", "drop2", "drop3", "drop2and4", "spread"],
                         "default": "close",
                         "description": (
                             "Voicing transformation. 'close' = stack of thirds. "
                             "'drop2' = 2nd-from-top dropped an octave (jazz piano staple). "
-                            "'rootless' = omit root (pianist's left-hand voicing when "
-                            "a bassist plays the root). 'spread' = wide voicing for "
-                            "piano LH/RH separation."
+                            "'spread' = wide voicing for piano LH/RH separation."
+                        ),
+                    },
+                    "rootless": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "When true, omit the root note from the voicing "
+                            "(pianist's left-hand voicing when a bassist plays the root). "
+                            "Cannot be combined with voicing='spread'."
                         ),
                     },
                 },
@@ -155,6 +162,18 @@ GENERATE_MIDI_PROGRESSION_SCHEMA = {
                 "(e.g. 'V64' or inversion=2) — those are pinned and only the "
                 "octave shift is optimized. Off by default; enabling it makes "
                 "consecutive chords flow smoothly instead of jumping registers."
+            ),
+        },
+        "max_octave": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9,
+            "default": 5,
+            "description": (
+                "When set, clamps all note pitches to this octave or lower, shifting "
+                "notes down by octaves as needed. Useful for keeping voicings in a "
+                "specific range (e.g., max_octave=4 for tight piano voicings). "
+                "Defaults to 5 (no clamping in typical usage)."
             ),
         },
         "filename": {
@@ -287,11 +306,29 @@ def _build_generation_request(arguments: dict) -> GenerationRequest:
             raise ValueError(f"chords[{i}] must be an object")
         if "numeral" not in c or "duration_beats" not in c:
             raise ValueError(f"chords[{i}] requires 'numeral' and 'duration_beats'")
+
+        voicing = c.get("voicing", "close")
+        # Migration guard: rootless was removed from the voicing enum.
+        if voicing == "rootless":
+            raise ValueError(
+                f"chords[{i}]: 'rootless' is no longer a voicing option — "
+                "pass rootless: true alongside your chosen voicing "
+                "(e.g. voicing: 'close', rootless: true)."
+            )
+
+        rootless = bool(c.get("rootless", False))
+        if voicing == "spread" and rootless:
+            raise ValueError(
+                f"chords[{i}]: rootless: true cannot be combined with "
+                "voicing: spread — spread is defined by its bass root."
+            )
+
         chord_specs.append(ChordSpec(
             numeral=c["numeral"],
             duration_beats=float(c["duration_beats"]),
             inversion=c.get("inversion"),
-            voicing=c.get("voicing", "close"),
+            voicing=voicing,
+            rootless=rootless,
         ))
 
     humanize_raw = arguments.get("humanize") or {}
@@ -306,11 +343,12 @@ def _build_generation_request(arguments: dict) -> GenerationRequest:
         scale_type=arguments["scale_type"],
         bpm=int(arguments["bpm"]),
         chords=chord_specs,
-        octave=int(arguments.get("octave", 4)),
+        octave=int(arguments.get("octave", 3)),
         time_signature=arguments.get("time_signature", "4/4"),
         humanize=humanize,
         seed=arguments.get("seed"),
         voice_lead=bool(arguments.get("voice_lead", False)),
+        max_octave=int(arguments.get("max_octave", 5)),
         filename=arguments.get("filename"),
         prompt_context=arguments.get("prompt_context"),
         generation_notes=arguments.get("generation_notes"),

@@ -235,6 +235,63 @@ def test_list_tools_returns_two_tools():
     ]
 
 
+def test_voicing_rootless_string_raises_migration_error(isolated_config_dir, tmp_path):
+    """Passing voicing='rootless' (old API) raises a targeted migration error."""
+    config.set_output_directory(tmp_path / "out")
+    with pytest.raises(ValueError, match="rootless.*no longer a voicing option"):
+        mcp_server.handle_generate_midi_progression({
+            "key_center": "C",
+            "scale_type": "major",
+            "bpm": 120,
+            "chords": [{"numeral": "I", "duration_beats": 4, "voicing": "rootless"}],
+        })
+
+
+def test_spread_plus_rootless_raises(isolated_config_dir, tmp_path):
+    """voicing=spread combined with rootless=true raises a validation error."""
+    config.set_output_directory(tmp_path / "out")
+    with pytest.raises(ValueError, match="rootless.*spread"):
+        mcp_server.handle_generate_midi_progression({
+            "key_center": "C",
+            "scale_type": "major",
+            "bpm": 120,
+            "chords": [{"numeral": "I", "duration_beats": 4, "voicing": "spread", "rootless": True}],
+        })
+
+
+def test_rootless_true_accepted(isolated_config_dir, tmp_path):
+    """rootless=true is accepted as a separate field alongside a non-spread voicing."""
+    out = tmp_path / "out"
+    config.set_output_directory(out)
+    result = mcp_server.handle_generate_midi_progression({
+        "key_center": "C",
+        "scale_type": "major",
+        "bpm": 120,
+        "chords": [{"numeral": "Imaj7", "duration_beats": 4, "rootless": True}],
+    })
+    assert "filepath" in result
+    # Cmaj7 has 4 notes; rootless strips the root, leaving 3
+    assert len(result["resolved"][0]["midi"]) == 3
+
+
+def test_max_octave_field_accepted(isolated_config_dir, tmp_path):
+    """max_octave field is accepted and passed through to GenerationRequest."""
+    out = tmp_path / "out"
+    config.set_output_directory(out)
+    result = mcp_server.handle_generate_midi_progression({
+        "key_center": "C",
+        "scale_type": "major",
+        "bpm": 120,
+        "chords": [{"numeral": "I", "duration_beats": 4}],
+        "octave": 7,
+        "max_octave": 4,
+    })
+    # theory octave=7 → root MIDI (7+1)*12=96
+    # _clamp_to_max_octave uses (n//12)-2: (96//12)-2=6 > max_octave=4
+    # shift = (6-4)*12=24 → root at MIDI 72
+    assert min(result["resolved"][0]["midi"]) == 72
+
+
 class TestVoiceLeadPlumbing:
     def test_voice_lead_in_schema_with_default_false(self):
         from banjo.mcp_server import GENERATE_MIDI_PROGRESSION_SCHEMA
