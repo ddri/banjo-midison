@@ -21,7 +21,7 @@ uv pip install -e ".[dev]"
 pytest
 ```
 
-107 tests covering the parser, chord builder, voicings, voice leading, MIDI writer, config, and MCP server.
+118 tests covering the parser, chord builder, voicings, voice leading, MIDI writer, config, and MCP server.
 
 ## Generate the audition corpus
 
@@ -43,7 +43,7 @@ banjo-corpus --output-dir ~/Music/banjo-test
 | # | File | What it tests |
 |---|------|---------------|
 | 01 | ii-V-I in C major, close voicings | Sanity check |
-| 02 | Neo-soul progression in F, rootless | Extensions, rootless voicings |
+| 02 | Neo-soul progression in F, rootless | Extensions, rootless voicing (rootless: true) |
 | 03 | Neo-soul in Eb with V7/vi | Secondary dominants, drop-2 |
 | 04 | I-bVII-IV-I in G | Modal mixture (mixolydian borrow) |
 | 05 | D dorian i9-IV9 vamp | Modal harmony |
@@ -60,7 +60,7 @@ banjo-corpus --output-dir ~/Music/banjo-test
 ```
 src/banjo/
 ├── theory.py        # Roman numeral parser, scales, chord builder
-├── voicings.py      # close, drop2, drop3, drop2and4, spread, rootless
+├── voicings.py      # close, drop2, drop3, drop2and4, spread
 ├── midi_writer.py   # mido wrapper, sidecar generation
 └── corpus.py        # test corpus CLI
 ```
@@ -87,9 +87,13 @@ that speaks the [Model Context Protocol](https://modelcontextprotocol.io).
 ### Tools
 
 - **`generate_midi_progression`** — render a Roman numeral progression to MIDI.
-  Required: `key_center`, `scale_type`, `bpm`, `chords`. Optional: `octave`,
-  `time_signature`, `humanize`, `seed`, `voice_lead`, `filename`, `prompt_context`,
-  `generation_notes`. Returns `{filepath, sidecar_path, resolved, total_beats}`.
+  Required: `key_center`, `scale_type`, `bpm`, `chords`. Optional: `octave` (default 3),
+  `max_octave` (default 5), `time_signature`, `humanize`, `seed`, `voice_lead`,
+  `filename`, `prompt_context`, `generation_notes`.
+  Returns `{filepath, sidecar_path, resolved, total_beats}`.
+
+  Per-chord options: `voicing` (`close`, `drop2`, `drop3`, `drop2and4`, `spread`),
+  `rootless` (bool, default false — omit root; not valid with `spread`), `inversion`.
 
 - **`set_output_directory`** — persist the output directory to
   `~/.banjo/config.json`. Default is `~/Music/banjo/`, created on first write.
