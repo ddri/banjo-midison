@@ -124,7 +124,7 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
     filename = request.filename or _auto_filename(request)
     if not filename.endswith(".mid"):
         filename += ".mid"
-    midi_path = output_dir / filename
+    midi_path = output_dir / Path(filename).name
 
     mid = mido.MidiFile(ticks_per_beat=TICKS_PER_BEAT)
     track = mido.MidiTrack()
