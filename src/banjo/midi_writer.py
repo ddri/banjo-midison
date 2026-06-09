@@ -78,6 +78,7 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
     """
     output_dir = Path(output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    generated_at = datetime.now(timezone.utc)
 
     rng = random.Random(request.seed) if request.seed is not None else random.Random()
 
@@ -120,8 +121,16 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
         resolved_chords.append((spec, parsed, chord, voiced))
         previous_voiced = voiced
 
+    # Pre-compute beat offsets once; both the metadata loop and MIDI event loop use them.
+    beat_offsets: list[float] = []
+    _beat = 0.0
+    for spec, *_ in resolved_chords:
+        beat_offsets.append(_beat)
+        _beat += spec.duration_beats
+    total_beats = _beat
+
     # Write the MIDI file.
-    filename = request.filename or _auto_filename(request)
+    filename = request.filename or _auto_filename(request, generated_at)
     if not filename.endswith(".mid"):
         filename += ".mid"
     midi_path = output_dir / Path(filename).name
@@ -143,19 +152,17 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
     ))
 
     # Build resolved metadata for each chord.
-    current_beat = 0.0
     resolved_metadata: list[dict] = []
-    for spec, parsed, chord, voiced in resolved_chords:
+    for i, (spec, parsed, chord, voiced) in enumerate(resolved_chords):
         resolved_metadata.append({
             "numeral": spec.numeral,
             "notes": [midi_note_name(n) for n in voiced],
             "midi": list(voiced),
-            "start_beat": current_beat,
+            "start_beat": beat_offsets[i],
             "duration_beats": spec.duration_beats,
             "voicing": spec.voicing,
             "inversion": parsed.inversion,
         })
-        current_beat += spec.duration_beats
 
     # Emit MIDI events using absolute ticks, then convert to delta times.
     seconds_per_beat = 60.0 / request.bpm
@@ -164,10 +171,9 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
     all_events: list[tuple[int, int, str, int, int]] = []
     # (abs_tick, ordering_key, type, note, velocity); ordering_key ensures
     # off-events at the same tick precede on-events.
-    current_beat = 0.0
-    for spec, parsed, chord, voiced in resolved_chords:
+    for i, (spec, parsed, chord, voiced) in enumerate(resolved_chords):
         duration_ticks = int(round(spec.duration_beats * TICKS_PER_BEAT))
-        chord_start_tick = int(round(current_beat * TICKS_PER_BEAT))
+        chord_start_tick = int(round(beat_offsets[i] * TICKS_PER_BEAT))
 
         for note in voiced:
             velocity = request.humanize.base_velocity
@@ -185,8 +191,6 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
             all_events.append((on_tick, 1, "on", note, velocity))
             all_events.append((off_tick, 0, "off", note, 0))
 
-        current_beat += spec.duration_beats
-
     all_events.sort(key=lambda e: (e[0], e[1]))
 
     prev_tick = 0
@@ -202,13 +206,13 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
 
     # Sidecar.
     sidecar_path = midi_path.with_suffix(".md")
-    sidecar_path.write_text(_render_sidecar(request, resolved_metadata, midi_path.name))
+    sidecar_path.write_text(_render_sidecar(request, resolved_metadata, midi_path.name, generated_at))
 
     return GenerationResult(
         filepath=midi_path,
         sidecar_path=sidecar_path,
         resolved=resolved_metadata,
-        total_beats=current_beat,
+        total_beats=total_beats,
     )
 
 
@@ -226,11 +230,11 @@ def _clamp_to_max_octave(notes: list[int], max_octave: int) -> list[int]:
     return notes
 
 
-def _auto_filename(request: GenerationRequest) -> str:
+def _auto_filename(request: GenerationRequest, generated_at: datetime) -> str:
     """Generate a descriptive filename from the request."""
     key = request.key_center.replace("#", "s").replace("b", "f")
     progression = "-".join(_safe_numeral(c.numeral) for c in request.chords[:6])
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    timestamp = generated_at.strftime("%Y%m%d-%H%M%S")
     return f"{key}_{request.scale_type}_{progression}_{timestamp}.mid"
 
 
@@ -243,12 +247,13 @@ def _render_sidecar(
     request: GenerationRequest,
     resolved: list[dict],
     midi_filename: str,
+    generated_at: datetime,
 ) -> str:
     """Render the human-readable .md sidecar."""
     lines: list[str] = []
     lines.append(f"# {midi_filename}")
     lines.append("")
-    lines.append(f"Generated: {datetime.now(timezone.utc).isoformat()}")
+    lines.append(f"Generated: {generated_at.isoformat()}")
     lines.append("")
 
     if request.prompt_context:
