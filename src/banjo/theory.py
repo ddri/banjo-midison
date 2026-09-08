@@ -63,23 +63,33 @@ MODE_INTERVALS: dict[str, tuple[int, ...]] = {
     "phrygian":   (0, 1, 3, 5, 7, 8, 10),
     "lydian":     (0, 2, 4, 6, 7, 9, 11),
     "mixolydian": (0, 2, 4, 5, 7, 9, 10),
-    "minor":      (0, 2, 3, 5, 7, 8, 10),   # Aeolian (natural minor)
-    "aeolian":    (0, 2, 3, 5, 7, 8, 10),
-    "locrian":    (0, 1, 3, 5, 6, 8, 10),
+    "minor":              (0, 2, 3, 5, 7, 8, 10),   # Aeolian (natural minor)
+    "aeolian":            (0, 2, 3, 5, 7, 8, 10),
+    "locrian":            (0, 1, 3, 5, 6, 8, 10),
+    "harmonic_minor":     (0, 2, 3, 5, 7, 8, 11),
+    "melodic_minor":      (0, 2, 3, 5, 7, 9, 11),
+    "phrygian_dominant": (0, 1, 4, 5, 7, 8, 10),
+    "lydian_dominant":   (0, 2, 4, 6, 7, 9, 10),
+    "altered":            (0, 1, 3, 4, 6, 8, 10),
 }
 
 # Default triad quality on each scale degree per mode.
 # 'M' = major, 'm' = minor, 'd' = diminished, 'A' = augmented.
 MODE_TRIAD_QUALITIES: dict[str, tuple[str, ...]] = {
-    "major":      ("M", "m", "m", "M", "M", "m", "d"),
-    "ionian":     ("M", "m", "m", "M", "M", "m", "d"),
-    "dorian":     ("m", "m", "M", "M", "m", "d", "M"),
-    "phrygian":   ("m", "M", "M", "m", "d", "M", "m"),
-    "lydian":     ("M", "M", "m", "d", "M", "m", "m"),
-    "mixolydian": ("M", "m", "d", "M", "m", "m", "M"),
-    "minor":      ("m", "d", "M", "m", "m", "M", "M"),
-    "aeolian":    ("m", "d", "M", "m", "m", "M", "M"),
-    "locrian":    ("d", "M", "m", "m", "M", "M", "m"),
+    "major":              ("M", "m", "m", "M", "M", "m", "d"),
+    "ionian":             ("M", "m", "m", "M", "M", "m", "d"),
+    "dorian":             ("m", "m", "M", "M", "m", "d", "M"),
+    "phrygian":           ("m", "M", "M", "m", "d", "M", "m"),
+    "lydian":             ("M", "M", "m", "d", "M", "m", "m"),
+    "mixolydian":         ("M", "m", "d", "M", "m", "m", "M"),
+    "minor":              ("m", "d", "M", "m", "m", "M", "M"),
+    "aeolian":            ("m", "d", "M", "m", "m", "M", "M"),
+    "locrian":            ("d", "M", "m", "m", "M", "M", "m"),
+    "harmonic_minor":     ("m", "d", "A", "m", "M", "M", "d"),
+    "melodic_minor":      ("m", "m", "A", "M", "M", "d", "d"),
+    "phrygian_dominant": ("M", "M", "d", "m", "d", "M", "m"),
+    "lydian_dominant":   ("M", "m", "d", "d", "m", "m", "M"),
+    "altered":            ("d", "m", "m", "M", "M", "M", "m"),
 }
 
 

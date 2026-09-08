@@ -216,6 +216,31 @@ class TestMidiWriter:
         )
         assert request.max_octave == 5
 
+    def test_rhythm_patterns_generate_events(self, tmp_output: Path):
+        request = GenerationRequest(
+            key_center="C", scale_type="major", bpm=120,
+            chords=[
+                ChordSpec("I", 4, pattern="strum"),
+                ChordSpec("V", 4, pattern="arpeggio_up"),
+                ChordSpec("vi", 4, pattern="arpeggio_down"),
+                ChordSpec("IV", 4, pattern="comp_syncopated"),
+            ],
+            filename="test_patterns",
+        )
+        result = generate(request, tmp_output)
+        assert result.filepath.exists()
+        assert len(result.resolved) == 4
+        assert result.resolved[0]["pattern"] == "strum"
+        assert result.resolved[1]["pattern"] == "arpeggio_up"
+        assert result.resolved[2]["pattern"] == "arpeggio_down"
+        assert result.resolved[3]["pattern"] == "comp_syncopated"
+
+    def test_safe_numeral_replaces_sharps_and_pluses(self):
+        from banjo.midi_writer import _safe_numeral
+        assert _safe_numeral("#IV") == "sIV"
+        assert _safe_numeral("III+") == "IIIaug"
+        assert _safe_numeral("V7/vi") == "V7-of-vi"
+
 
 class TestVoiceLead:
     def test_voice_lead_defaults_false_unchanged_behavior(self, tmp_path):

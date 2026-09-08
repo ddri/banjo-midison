@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from typing import Literal
+
 import mido
 
 from banjo.theory import (
@@ -29,6 +31,9 @@ from banjo.voicings import VoicingName, apply_voicing
 TICKS_PER_BEAT = 480  # standard PPQN
 
 
+PatternName = Literal["block", "strum", "arpeggio_up", "arpeggio_down", "comp_syncopated"]
+
+
 @dataclass
 class ChordSpec:
     """Per-chord input to the writer."""
@@ -37,6 +42,7 @@ class ChordSpec:
     inversion: int | None = None       # overrides parsed inversion if set
     voicing: VoicingName = "close"
     rootless: bool = False
+    pattern: PatternName = "block"
 
 
 @dataclass
@@ -162,6 +168,7 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
             "duration_beats": spec.duration_beats,
             "voicing": spec.voicing,
             "inversion": parsed.inversion,
+            "pattern": spec.pattern,
         })
 
     # Emit MIDI events using absolute ticks, then convert to delta times.
@@ -175,21 +182,60 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
         duration_ticks = int(round(spec.duration_beats * TICKS_PER_BEAT))
         chord_start_tick = int(round(beat_offsets[i] * TICKS_PER_BEAT))
 
-        for note in voiced:
-            velocity = request.humanize.base_velocity
-            if request.humanize.velocity_range > 0:
-                velocity += rng.randint(-request.humanize.velocity_range, request.humanize.velocity_range)
-            velocity = max(1, min(127, velocity))
+        pattern = spec.pattern
+        if pattern == "strum" and len(voiced) > 1:
+            strum_step_ticks = int(round(15.0 * ticks_per_ms))
+            sorted_voiced = sorted(voiced)
+            for idx, note in enumerate(sorted_voiced):
+                note_start = chord_start_tick + idx * strum_step_ticks
+                note_end = chord_start_tick + duration_ticks
+                velocity = _calc_velocity(request.humanize, rng)
+                timing_ticks = _calc_timing_offset(request.humanize, rng, ticks_per_ms)
+                on_tick = max(0, note_start + timing_ticks)
+                off_tick = max(on_tick + 1, note_end + timing_ticks)
+                all_events.append((on_tick, 1, "on", note, velocity))
+                all_events.append((off_tick, 0, "off", note, 0))
 
-            timing_offset_ticks = 0
-            if request.humanize.timing_ms > 0:
-                offset_ms = rng.randint(-request.humanize.timing_ms, request.humanize.timing_ms)
-                timing_offset_ticks = int(round(offset_ms * ticks_per_ms))
+        elif pattern in ("arpeggio_up", "arpeggio_down") and len(voiced) > 0:
+            notes_order = sorted(voiced) if pattern == "arpeggio_up" else sorted(voiced, reverse=True)
+            step_ticks = duration_ticks / len(notes_order)
+            for idx, note in enumerate(notes_order):
+                note_start = chord_start_tick + int(round(idx * step_ticks))
+                note_end = chord_start_tick + int(round((idx + 1) * step_ticks))
+                velocity = _calc_velocity(request.humanize, rng)
+                timing_ticks = _calc_timing_offset(request.humanize, rng, ticks_per_ms)
+                on_tick = max(0, note_start + timing_ticks)
+                off_tick = max(on_tick + 1, note_end + timing_ticks)
+                all_events.append((on_tick, 1, "on", note, velocity))
+                all_events.append((off_tick, 0, "off", note, 0))
 
-            on_tick = max(0, chord_start_tick + timing_offset_ticks)
-            off_tick = max(on_tick + 1, chord_start_tick + duration_ticks + timing_offset_ticks)
-            all_events.append((on_tick, 1, "on", note, velocity))
-            all_events.append((off_tick, 0, "off", note, 0))
+        elif pattern == "comp_syncopated" and len(voiced) > 0:
+            # Syncopated pulses at beat offsets 0.0, 1.5, 3.0 within chord duration
+            pulse_offsets_beats = [0.0, 1.5, 3.0]
+            pulse_len_beats = 0.75
+            for offset_b in pulse_offsets_beats:
+                if offset_b >= spec.duration_beats:
+                    continue
+                p_start_tick = chord_start_tick + int(round(offset_b * TICKS_PER_BEAT))
+                p_end_b = min(spec.duration_beats, offset_b + pulse_len_beats)
+                p_end_tick = chord_start_tick + int(round(p_end_b * TICKS_PER_BEAT))
+                for note in voiced:
+                    velocity = _calc_velocity(request.humanize, rng)
+                    timing_ticks = _calc_timing_offset(request.humanize, rng, ticks_per_ms)
+                    on_tick = max(0, p_start_tick + timing_ticks)
+                    off_tick = max(on_tick + 1, p_end_tick + timing_ticks)
+                    all_events.append((on_tick, 1, "on", note, velocity))
+                    all_events.append((off_tick, 0, "off", note, 0))
+
+        else:
+            # Default "block" pattern
+            for note in voiced:
+                velocity = _calc_velocity(request.humanize, rng)
+                timing_ticks = _calc_timing_offset(request.humanize, rng, ticks_per_ms)
+                on_tick = max(0, chord_start_tick + timing_ticks)
+                off_tick = max(on_tick + 1, chord_start_tick + duration_ticks + timing_ticks)
+                all_events.append((on_tick, 1, "on", note, velocity))
+                all_events.append((off_tick, 0, "off", note, 0))
 
     all_events.sort(key=lambda e: (e[0], e[1]))
 
@@ -216,6 +262,20 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
     )
 
 
+def _calc_velocity(humanize: HumanizeSpec, rng: random.Random) -> int:
+    velocity = humanize.base_velocity
+    if humanize.velocity_range > 0:
+        velocity += rng.randint(-humanize.velocity_range, humanize.velocity_range)
+    return max(1, min(127, velocity))
+
+
+def _calc_timing_offset(humanize: HumanizeSpec, rng: random.Random, ticks_per_ms: float) -> int:
+    if humanize.timing_ms > 0:
+        offset_ms = rng.randint(-humanize.timing_ms, humanize.timing_ms)
+        return int(round(offset_ms * ticks_per_ms))
+    return 0
+
+
 def _clamp_to_max_octave(notes: list[int], max_octave: int) -> list[int]:
     """Shift notes down by whole octaves until the lowest note is within max_octave.
 
@@ -240,7 +300,13 @@ def _auto_filename(request: GenerationRequest, generated_at: datetime) -> str:
 
 def _safe_numeral(n: str) -> str:
     """Strip characters that aren't filesystem-friendly."""
-    return n.replace("/", "-of-").replace("°", "o").replace("ø", "h")
+    return (
+        n.replace("/", "-of-")
+        .replace("°", "o")
+        .replace("ø", "h")
+        .replace("#", "s")
+        .replace("+", "aug")
+    )
 
 
 def _render_sidecar(

@@ -292,6 +292,30 @@ def test_max_octave_field_accepted(isolated_config_dir, tmp_path):
     assert min(result["resolved"][0]["midi"]) == 72
 
 
+def test_pattern_field_accepted(isolated_config_dir, tmp_path):
+    """pattern field is accepted per chord and passed through."""
+    out = tmp_path / "out"
+    config.set_output_directory(out)
+    result = mcp_server.handle_generate_midi_progression({
+        "key_center": "C",
+        "scale_type": "harmonic_minor",
+        "bpm": 120,
+        "chords": [{"numeral": "i", "duration_beats": 4, "pattern": "arpeggio_up"}],
+    })
+    assert result["resolved"][0]["pattern"] == "arpeggio_up"
+
+
+def test_invalid_pattern_raises(isolated_config_dir, tmp_path):
+    config.set_output_directory(tmp_path / "out")
+    with pytest.raises(ValueError, match="Invalid pattern"):
+        mcp_server.handle_generate_midi_progression({
+            "key_center": "C",
+            "scale_type": "major",
+            "bpm": 120,
+            "chords": [{"numeral": "I", "duration_beats": 4, "pattern": "dubstep_drop"}],
+        })
+
+
 class TestVoiceLeadPlumbing:
     def test_voice_lead_in_schema_with_default_false(self):
         from banjo.mcp_server import GENERATE_MIDI_PROGRESSION_SCHEMA
