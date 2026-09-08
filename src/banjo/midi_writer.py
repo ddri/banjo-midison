@@ -352,13 +352,13 @@ def _render_sidecar(
 
     lines.append("## Resolved progression")
     lines.append("")
-    lines.append("| # | Numeral | Beat | Duration | Voicing | Notes |")
-    lines.append("|---|---------|------|----------|---------|-------|")
+    lines.append("| # | Numeral | Beat | Duration | Voicing | Pattern | Notes |")
+    lines.append("|---|---------|------|----------|---------|---------|-------|")
     for i, r in enumerate(resolved, 1):
         notes_str = " ".join(r["notes"])
         lines.append(
             f"| {i} | `{r['numeral']}` | {r['start_beat']} | "
-            f"{r['duration_beats']} | {r['voicing']} | {notes_str} |"
+            f"{r['duration_beats']} | {r['voicing']} | {r.get('pattern', 'block')} | {notes_str} |"
         )
     lines.append("")
 
