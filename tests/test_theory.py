@@ -70,6 +70,18 @@ class TestScales:
         # E mix: E F# G# A B C# D
         assert scale_pitch_classes(4, "mixolydian") == (4, 6, 8, 9, 11, 1, 2)
 
+    def test_new_modes(self):
+        # C harmonic minor: C D Eb F G Ab B
+        assert scale_pitch_classes(0, "harmonic_minor") == (0, 2, 3, 5, 7, 8, 11)
+        # C melodic minor: C D Eb F G A B
+        assert scale_pitch_classes(0, "melodic_minor") == (0, 2, 3, 5, 7, 9, 11)
+        # C phrygian dominant: C Db E F G Ab Bb
+        assert scale_pitch_classes(0, "phrygian_dominant") == (0, 1, 4, 5, 7, 8, 10)
+        # C lydian dominant: C D E F# G A Bb
+        assert scale_pitch_classes(0, "lydian_dominant") == (0, 2, 4, 6, 7, 9, 10)
+        # C altered: C Db Eb Fb Gb Ab Bb
+        assert scale_pitch_classes(0, "altered") == (0, 1, 3, 4, 6, 8, 10)
+
 
 # ---------------------------------------------------------------------------
 # Roman numeral parsing

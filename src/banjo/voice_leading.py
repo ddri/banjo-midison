@@ -101,8 +101,7 @@ def build_candidates(
             dataclasses.replace(parsed, inversion=0), key_pc, mode, octave=octave,
         )
         n_pre = len(chord_root.midi_notes)
-        n_post = n_pre - 1 if voicing == "rootless" else n_pre
-        max_inv = min(3, n_post - 1)
+        max_inv = min(3, n_pre - 1)
         inversions = list(range(max_inv + 1))
 
     candidates: list[list[int]] = []

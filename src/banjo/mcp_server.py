@@ -114,6 +114,19 @@ GENERATE_MIDI_PROGRESSION_SCHEMA = {
                             "or standalone DAW clips. Cannot be combined with voicing: spread."
                         ),
                     },
+                    "pattern": {
+                        "type": "string",
+                        "enum": ["block", "strum", "arpeggio_up", "arpeggio_down", "comp_syncopated"],
+                        "default": "block",
+                        "description": (
+                            "Rhythmic playback pattern for the chord notes. "
+                            "'block' — all notes hit simultaneously and hold for full duration. "
+                            "'strum' — notes onset with a slight staggered delay from bottom to top. "
+                            "'arpeggio_up' — notes played sequentially ascending. "
+                            "'arpeggio_down' — notes played sequentially descending. "
+                            "'comp_syncopated' — syncopated pulse pattern within the chord duration."
+                        ),
+                    },
                 },
             },
         },
@@ -333,12 +346,17 @@ def _build_generation_request(arguments: dict) -> GenerationRequest:
                 "voicing: spread — spread is defined by its bass root."
             )
 
+        pattern = c.get("pattern", "block")
+        if pattern not in ("block", "strum", "arpeggio_up", "arpeggio_down", "comp_syncopated"):
+            raise ValueError(f"chords[{i}]: Invalid pattern: {pattern!r}")
+
         chord_specs.append(ChordSpec(
             numeral=c["numeral"],
             duration_beats=float(c["duration_beats"]),
             inversion=c.get("inversion"),
             voicing=voicing,
             rootless=rootless,
+            pattern=pattern,
         ))
 
     humanize_raw = arguments.get("humanize") or {}

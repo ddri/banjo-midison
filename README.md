@@ -21,7 +21,7 @@ uv pip install -e ".[dev]"
 uv run pytest
 ```
 
-118 tests covering the parser, chord builder, voicings, voice leading, MIDI writer, config, and MCP server.
+123 tests covering the parser, chord builder, voicings, voice leading, MIDI writer, config, and MCP server.
 
 ## Generate the audition corpus
 
@@ -115,6 +115,7 @@ Per-chord fields (inside the `chords` array):
 | `duration_beats` | required | Duration in beats. |
 | `voicing` | `"close"` | How chord tones are arranged. See voicings below. |
 | `rootless` | `false` | Omit the root note. Use this when a separate bass track covers the root. Not valid with `voicing: "spread"`. |
+| `pattern` | `"block"` | Playback pattern: `"block"` (simultaneous chord hold), `"strum"` (staggered onset), `"arpeggio_up"`, `"arpeggio_down"`, `"comp_syncopated"`. |
 | `inversion` | — | Override inversion: 0 = root, 1 = first, 2 = second, 3 = third. |
 
 **`set_output_directory`**
@@ -169,7 +170,7 @@ tail -f /tmp/banjo-mcp.log
 - **Half-diminished:** `iiø`
 - **Inversions:** `V6` (first), `V64` (second), `V42` (third of seventh chord)
 
-Supported modes: major, minor, dorian, phrygian, lydian, mixolydian, locrian, lydian_dominant, phrygian_dominant.
+Supported modes: major, minor, dorian, phrygian, lydian, mixolydian, locrian, harmonic_minor, melodic_minor, phrygian_dominant, lydian_dominant, altered.
 
 ## Architecture
 
