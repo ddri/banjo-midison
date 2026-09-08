@@ -1,6 +1,6 @@
 [project]
 name = "banjo-midison"
-version = "0.1.0"
+version = "0.3.0"
 description = "MIDI chord progression generator as an MCP Server."
 license = {text = "MIT"}
 requires-python = ">=3.11"
