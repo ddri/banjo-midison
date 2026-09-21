@@ -21,7 +21,24 @@ uv pip install -e ".[dev]"
 uv run pytest
 ```
 
-123 tests covering the parser, chord builder, voicings, voice leading, MIDI writer, config, and MCP server.
+136 tests covering the parser, chord builder, voicings, voice leading, MIDI writer, config, CLI, and MCP server.
+
+## Command-line interface
+
+Render progressions directly to MIDI from your terminal:
+
+```bash
+# Basic progression (C major, 120 BPM, 4 beats per chord)
+banjo "ii7 - V7 - Imaj7"
+
+# Custom key, tempo, voicing, and playback pattern
+banjo "Imaj9 - vi9 - ii9 - V13" --key Eb --bpm 85 --voicing drop2 --pattern arpeggio_up --voice-lead
+
+# Per-chord duration using numeral:beats syntax
+banjo "ii7:2 - V7:2 - Imaj7:4" -k G --bpm 105 --pattern strum
+```
+
+Files land in `~/Music/banjo/` by default alongside `.md` sidecars.
 
 ## Generate the audition corpus
 
@@ -180,6 +197,7 @@ src/banjo/
 ├── voicings.py       # Voicing transformations (close, drop2, drop3, drop2and4, spread)
 ├── voice_leading.py  # Inversion + register optimisation
 ├── midi_writer.py    # MIDI output, sidecar generation, generation pipeline
+├── cli.py            # Standalone one-shot CLI generator
 ├── mcp_server.py     # MCP stdio server
 ├── corpus.py         # Audition corpus CLI
 └── config.py         # Persistent config (~/.banjo/config.json)

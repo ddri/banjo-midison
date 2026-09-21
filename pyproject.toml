@@ -15,6 +15,7 @@ dev = [
 ]
 
 [project.scripts]
+banjo = "banjo.cli:main"
 banjo-corpus = "banjo.corpus:main"
 banjo-mcp = "banjo.mcp_server:main"
 
