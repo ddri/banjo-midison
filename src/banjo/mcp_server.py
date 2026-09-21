@@ -29,6 +29,9 @@ from banjo.midi_writer import (
     generate,
 )
 from banjo.theory import MODE_INTERVALS, parse_pitch_class
+from banjo.stream import stream_progression
+from banjo.ableton import AbletonClient, install_ableton_osc
+from banjo.miditool import install_m4l_device
 
 logger = logging.getLogger("banjo.mcp")
 
@@ -242,6 +245,65 @@ SET_OUTPUT_DIRECTORY_SCHEMA = {
     "required": ["path"],
 }
 
+SEND_TO_ABLETON_SCHEMA = {
+    "type": "object",
+    "required": ["key_center", "scale_type", "bpm", "chords"],
+    "properties": {
+        **GENERATE_MIDI_PROGRESSION_SCHEMA["properties"],
+        "track_index": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Ableton Live track index (0-indexed). Defaults to 0 (Track 1).",
+        },
+        "clip_index": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "description": "Ableton Live clip slot index (0-indexed). Defaults to 0 (Slot 1).",
+        },
+        "fire": {
+            "type": "boolean",
+            "default": True,
+            "description": "Whether to immediately launch/play the clip in Ableton after injecting.",
+        },
+    },
+}
+
+STREAM_TO_MIDI_PORT_SCHEMA = {
+    "type": "object",
+    "required": ["key_center", "scale_type", "bpm", "chords"],
+    "properties": {
+        **GENERATE_MIDI_PROGRESSION_SCHEMA["properties"],
+        "port_name": {
+            "type": "string",
+            "default": "Banjo",
+            "description": "Name of the macOS virtual or hardware MIDI output port (defaults to 'Banjo').",
+        },
+        "loop": {
+            "type": "boolean",
+            "default": False,
+            "description": "Whether to loop playback continuously.",
+        },
+    },
+}
+
+INSTALL_ABLETON_INTEGRATIONS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "install_ableton_osc": {
+            "type": "boolean",
+            "default": True,
+            "description": "Install AbletonOSC Remote Script for direct zero-drag clip injection.",
+        },
+        "install_max_generator": {
+            "type": "boolean",
+            "default": True,
+            "description": "Install Banjo Generator.amxd into Live 12 MIDI Tools / Max Generators.",
+        },
+    },
+}
+
 
 @server.list_tools()
 async def list_tools() -> list[Tool]:
@@ -259,6 +321,31 @@ async def list_tools() -> list[Tool]:
                 "Default octave 3 and max_octave 5 keep chords in a comfortable piano register."
             ),
             inputSchema=GENERATE_MIDI_PROGRESSION_SCHEMA,
+        ),
+        Tool(
+            name="send_to_ableton",
+            description=(
+                "Directly inject a MIDI chord progression and groove into an active Ableton Live "
+                "track and clip slot using AbletonOSC. Eliminates manual file exports and drag-and-drop. "
+                "Creates the clip, writes all voice-led notes, and optionally triggers playback."
+            ),
+            inputSchema=SEND_TO_ABLETON_SCHEMA,
+        ),
+        Tool(
+            name="stream_to_midi_port",
+            description=(
+                "Stream notes in real-time to a macOS CoreMIDI virtual port ('Banjo') or hardware port. "
+                "Allows auditioning progressions through an armed Ableton Live VST track live with zero latency."
+            ),
+            inputSchema=STREAM_TO_MIDI_PORT_SCHEMA,
+        ),
+        Tool(
+            name="install_ableton_integrations",
+            description=(
+                "Automatically install AbletonOSC and the Live 12 Max Generator device "
+                "into Ableton Live's User Library and Remote Scripts folders."
+            ),
+            inputSchema=INSTALL_ABLETON_INTEGRATIONS_SCHEMA,
         ),
         Tool(
             name="set_output_directory",
@@ -392,6 +479,62 @@ def _build_generation_request(arguments: dict) -> GenerationRequest:
     )
 
 
+def handle_send_to_ableton(arguments: dict) -> dict:
+    """Inject a progression directly into Ableton Live via AbletonOSC."""
+    request = _build_generation_request(arguments)
+    track_index = int(arguments.get("track_index", 0))
+    clip_index = int(arguments.get("clip_index", 0))
+    fire = bool(arguments.get("fire", True))
+
+    client = AbletonClient()
+    result = client.inject_progression(
+        request, track_index=track_index, clip_index=clip_index, fire=fire
+    )
+
+    # Also generate the file to disk so user has the sidecar/backup
+    output_dir = config.get_output_directory()
+    gen_result = generate(request, output_dir)
+    result["file_path"] = str(gen_result.filepath)
+    result["sidecar_path"] = str(gen_result.sidecar_path)
+    return result
+
+
+def handle_stream_to_midi_port(arguments: dict) -> dict:
+    """Stream notes in real-time to a macOS virtual MIDI port or hardware port."""
+    request = _build_generation_request(arguments)
+    port_name = str(arguments.get("port_name", "Banjo"))
+    loop = bool(arguments.get("loop", False))
+
+    resolved = stream_progression(request, port_name=port_name, loop=loop)
+    return {
+        "status": "success",
+        "port": port_name,
+        "bpm": request.bpm,
+        "notes_streamed": len(resolved.notes),
+        "total_beats": resolved.total_beats,
+        "chords": [m["numeral"] for m in resolved.resolved_metadata],
+    }
+
+
+def handle_install_ableton_integrations(arguments: dict) -> dict:
+    """Install AbletonOSC and/or Banjo Generator into Ableton user directories."""
+    installed: dict[str, str] = {}
+    if arguments.get("install_ableton_osc", True):
+        osc_path = install_ableton_osc()
+        installed["ableton_osc"] = str(osc_path)
+    if arguments.get("install_max_generator", True):
+        m4l_path = install_m4l_device()
+        installed["max_generator"] = str(m4l_path)
+    return {
+        "status": "success",
+        "installed_paths": installed,
+        "instructions": (
+            "1. In Ableton Live Settings > Link/Tempo/MIDI > Control Surface, select 'AbletonOSC'. "
+            "2. In Live 12 Piano Roll, click 'Generators' tab to use 'Banjo Generator'."
+        ),
+    }
+
+
 # ---------------------------------------------------------------------------
 # MCP dispatcher
 # ---------------------------------------------------------------------------
@@ -403,6 +546,12 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         result = handle_generate_midi_progression(arguments)
     elif name == "set_output_directory":
         result = handle_set_output_directory(arguments)
+    elif name == "send_to_ableton":
+        result = handle_send_to_ableton(arguments)
+    elif name == "stream_to_midi_port":
+        result = handle_stream_to_midi_port(arguments)
+    elif name == "install_ableton_integrations":
+        result = handle_install_ableton_integrations(arguments)
     else:
         raise ValueError(f"Unknown tool: {name}")
     return [TextContent(type="text", text=json.dumps(result, indent=2))]

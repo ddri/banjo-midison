@@ -111,3 +111,48 @@ class TestCliMain:
         assert exit_code == 1
         captured = capsys.readouterr()
         assert "rootless cannot be combined with voicing: spread" in captured.err
+
+    def test_miditool_dict_flag(self, capsys):
+        exit_code = main(["ii7 - V7 - Imaj7", "--miditool-dict"])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert '"notes": [' in captured.out
+        assert '"pitch":' in captured.out
+
+    def test_install_ableton_osc_flag(self, capsys, monkeypatch):
+        from unittest.mock import patch
+        with patch("banjo.cli.install_ableton_osc", return_value=Path("/mock/AbletonOSC")):
+            exit_code = main(["--install-ableton-osc"])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "Installed AbletonOSC successfully" in captured.out
+
+    def test_install_m4l_flag(self, capsys):
+        from unittest.mock import patch
+        with patch("banjo.cli.install_m4l_device", return_value=Path("/mock/Banjo Generator.amxd")):
+            exit_code = main(["--install-m4l"])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "Installed Banjo Generator.amxd successfully" in captured.out
+
+    def test_to_ableton_flag(self, capsys, tmp_path):
+        from unittest.mock import MagicMock, patch
+        mock_client = MagicMock()
+        mock_client.inject_progression.return_value = {
+            "status": "success", "track_index": 0, "clip_index": 0,
+            "total_beats": 4.0, "notes_count": 8, "fired": True,
+        }
+        with patch("banjo.cli.AbletonClient", return_value=mock_client):
+            exit_code = main(["ii7 - V7", "--to-ableton", "--output-dir", str(tmp_path)])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "Injected directly into Ableton Live" in captured.out
+
+    def test_play_stream_flag(self, capsys, tmp_path):
+        from unittest.mock import patch
+        with patch("banjo.cli.stream_progression") as mock_stream:
+            exit_code = main(["ii7 - V7", "--play", "--output-dir", str(tmp_path)])
+        assert exit_code == 0
+        mock_stream.assert_called_once()
+        captured = capsys.readouterr()
+        assert "Streaming live to MIDI port" in captured.out

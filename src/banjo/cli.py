@@ -24,6 +24,9 @@ from banjo.midi_writer import (
 )
 from banjo.theory import MODE_INTERVALS, parse_pitch_class, parse_roman_numeral
 from banjo.voicings import VoicingName
+from banjo.stream import stream_progression
+from banjo.ableton import AbletonClient, install_ableton_osc
+from banjo.miditool import to_miditool_dict, install_m4l_device
 
 VALID_VOICINGS: tuple[VoicingName, ...] = (
     "close",
@@ -100,6 +103,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "progression",
+        nargs="?",
+        default=None,
         help="Roman numeral progression string, e.g. 'ii7 - V7 - Imaj7' or 'ii7:2 - V7:2 - Imaj7:4'",
     )
     parser.add_argument(
@@ -204,6 +209,62 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output directory (defaults to ~/.banjo/config.json or ~/Music/banjo/)",
     )
     parser.add_argument(
+        "--play",
+        "--stream",
+        dest="stream",
+        action="store_true",
+        help="Stream notes in real-time to macOS virtual MIDI port ('Banjo') or specified --port",
+    )
+    parser.add_argument(
+        "--port",
+        default="Banjo",
+        help="Target MIDI port for --play/--stream (default: 'Banjo')",
+    )
+    parser.add_argument(
+        "--loop",
+        action="store_true",
+        help="Loop real-time playback continuously until Ctrl+C",
+    )
+    parser.add_argument(
+        "--to-ableton",
+        action="store_true",
+        help="Inject clip directly into Ableton Live via AbletonOSC (zero drag-and-drop)",
+    )
+    parser.add_argument(
+        "--track",
+        type=int,
+        default=0,
+        help="Ableton Live track index for --to-ableton (default: 0)",
+    )
+    parser.add_argument(
+        "--clip",
+        type=int,
+        default=0,
+        help="Ableton Live clip slot index for --to-ableton (default: 0)",
+    )
+    parser.add_argument(
+        "--no-fire",
+        dest="fire",
+        action="store_false",
+        default=True,
+        help="Do not auto-play/fire the clip in Ableton after injection",
+    )
+    parser.add_argument(
+        "--miditool-dict",
+        action="store_true",
+        help="Print Ableton Live 12 native live.miditool.out JSON note dictionary to stdout",
+    )
+    parser.add_argument(
+        "--install-ableton-osc",
+        action="store_true",
+        help="Install AbletonOSC into Ableton's User Remote Scripts directory",
+    )
+    parser.add_argument(
+        "--install-m4l",
+        action="store_true",
+        help="Install Banjo Generator.amxd into Ableton Live 12 MIDI Tools",
+    )
+    parser.add_argument(
         "-f",
         "--filename",
         help="Output filename without .mid extension",
@@ -214,6 +275,38 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.install_ableton_osc:
+        try:
+            installed_path = install_ableton_osc()
+            print(f"\n✓ Installed AbletonOSC successfully to:")
+            print(f"  {installed_path}")
+            print("\nNext step in Ableton Live:")
+            print("  1. Open Preferences / Settings (Cmd + ,)")
+            print("  2. Go to 'Link, Tempo & MIDI'")
+            print("  3. Under 'Control Surface', select 'AbletonOSC' from the dropdown.")
+            return 0
+        except Exception as e:
+            print(f"Error installing AbletonOSC: {e}", file=sys.stderr)
+            return 1
+
+    if args.install_m4l:
+        try:
+            installed_path = install_m4l_device()
+            print(f"\n✓ Installed Banjo Generator.amxd successfully to:")
+            print(f"  {installed_path}")
+            print("\nNext step in Ableton Live 12:")
+            print("  1. Open the Piano Roll / Clip View on any MIDI clip.")
+            print("  2. Click the 'Generators' tab.")
+            print("  3. Select 'Banjo Generator' to compose chords and grooves directly inside Live!")
+            return 0
+        except Exception as e:
+            print(f"Error installing Max for Live MIDI tool: {e}", file=sys.stderr)
+            return 1
+
+    if not args.progression:
+        parser.print_help()
+        return 1
 
     try:
         parse_pitch_class(args.key)
@@ -266,6 +359,44 @@ def main(argv: list[str] | None = None) -> int:
         voice_lead=args.voice_lead,
         filename=args.filename,
     )
+
+    if args.miditool_dict:
+        import json
+        payload = to_miditool_dict(request)
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    if args.to_ableton:
+        client = AbletonClient()
+        try:
+            injected = client.inject_progression(
+                request,
+                track_index=args.track,
+                clip_index=args.clip,
+                fire=args.fire,
+            )
+            print(f"\n✓ Injected directly into Ableton Live:")
+            print(f"  Track:        {args.track}")
+            print(f"  Clip Slot:    {args.clip}")
+            print(f"  Total Notes:  {injected['notes_count']}")
+            print(f"  Duration:     {injected['total_beats']:.1f} beats")
+            print(f"  Launched:     {'Yes' if args.fire else 'No'}")
+        except Exception as e:
+            print(f"Error injecting into Ableton Live: {e}", file=sys.stderr)
+            return 1
+
+    if args.stream:
+        print(f"\n▶ Streaming live to MIDI port '{args.port}' ({args.bpm} BPM)...")
+        if args.loop:
+            print("  Looping continuously. Press Ctrl+C to stop.")
+        try:
+            stream_progression(request, port_name=args.port, loop=args.loop)
+            print("✓ Finished streaming.")
+        except KeyboardInterrupt:
+            print("\n⏹ Stream stopped by user.")
+        except Exception as e:
+            print(f"Error streaming MIDI: {e}", file=sys.stderr)
+            return 1
 
     output_dir = args.output_dir or config.get_output_directory()
 

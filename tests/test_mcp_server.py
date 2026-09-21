@@ -224,15 +224,23 @@ def test_call_tool_dispatcher_unknown_tool_raises():
         asyncio.run(mcp_server.call_tool("nonexistent", {}))
 
 
-def test_list_tools_returns_two_tools():
+def test_list_tools_returns_all_tools():
     tools = asyncio.run(mcp_server.list_tools())
     names = {t.name for t in tools}
-    assert names == {"generate_midi_progression", "set_output_directory"}
+    assert names == {
+        "generate_midi_progression",
+        "set_output_directory",
+        "send_to_ableton",
+        "stream_to_midi_port",
+        "install_ableton_integrations",
+    }
     # Schemas are non-trivial.
     schemas = {t.name: t.inputSchema for t in tools}
     assert schemas["generate_midi_progression"]["required"] == [
         "key_center", "scale_type", "bpm", "chords",
     ]
+    assert "track_index" in schemas["send_to_ableton"]["properties"]
+    assert "port_name" in schemas["stream_to_midi_port"]["properties"]
 
 
 def test_voicing_rootless_string_raises_migration_error(isolated_config_dir, tmp_path):
@@ -340,3 +348,78 @@ class TestVoiceLeadPlumbing:
             "chords": [{"numeral": "I", "duration_beats": 4}],
         })
         assert req.voice_lead is False
+
+
+def test_handle_send_to_ableton(isolated_config_dir, tmp_path):
+    config.set_output_directory(tmp_path / "out")
+    from unittest.mock import MagicMock, patch
+
+    mock_client = MagicMock()
+    mock_client.inject_progression.return_value = {
+        "status": "success",
+        "track_index": 1,
+        "clip_index": 2,
+        "total_beats": 4.0,
+        "notes_count": 4,
+        "chords": ["ii7"],
+        "fired": True,
+    }
+
+    with patch("banjo.mcp_server.AbletonClient", return_value=mock_client):
+        res = mcp_server.handle_send_to_ableton({
+            "key_center": "Eb",
+            "scale_type": "major",
+            "bpm": 120,
+            "track_index": 1,
+            "clip_index": 2,
+            "fire": True,
+            "chords": [{"numeral": "ii7", "duration_beats": 4.0}],
+        })
+
+    assert res["status"] == "success"
+    assert res["track_index"] == 1
+    assert "file_path" in res
+
+
+def test_handle_stream_to_midi_port(isolated_config_dir, tmp_path):
+    from unittest.mock import MagicMock, patch
+
+    mock_resolved = MagicMock()
+    mock_resolved.notes = [1, 2, 3, 4]
+    mock_resolved.total_beats = 4.0
+    mock_resolved.resolved_metadata = [{"numeral": "I"}]
+
+    with patch("banjo.mcp_server.stream_progression", return_value=mock_resolved) as mock_stream:
+        res = mcp_server.handle_stream_to_midi_port({
+            "key_center": "C",
+            "scale_type": "major",
+            "bpm": 120,
+            "port_name": "TestPort",
+            "loop": False,
+            "chords": [{"numeral": "I", "duration_beats": 4.0}],
+        })
+
+    assert res["status"] == "success"
+    assert res["port"] == "TestPort"
+    assert res["notes_streamed"] == 4
+    mock_stream.assert_called_once()
+
+
+def test_handle_install_ableton_integrations(tmp_path):
+    from unittest.mock import patch
+    from pathlib import Path
+
+    fake_osc = tmp_path / "Remote Scripts" / "AbletonOSC"
+    fake_m4l = tmp_path / "Max Generators" / "Banjo Generator.amxd"
+
+    with patch("banjo.mcp_server.install_ableton_osc", return_value=fake_osc), \
+         patch("banjo.mcp_server.install_m4l_device", return_value=fake_m4l):
+        res = mcp_server.handle_install_ableton_integrations({
+            "install_ableton_osc": True,
+            "install_max_generator": True,
+        })
+
+    assert res["status"] == "success"
+    assert "ableton_osc" in res["installed_paths"]
+    assert "max_generator" in res["installed_paths"]
+
