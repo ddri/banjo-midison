@@ -25,13 +25,13 @@ from banjo.theory import (
     pitch_class_name,
     build_chord,
 )
+from banjo.grooves import get_groove, select_voices, tile_groove_pulses
 from banjo.voice_leading import build_candidates, choose_voicing_position
 from banjo.voicings import VoicingName, apply_voicing
 
 TICKS_PER_BEAT = 480  # standard PPQN
 
-
-PatternName = Literal["block", "strum", "arpeggio_up", "arpeggio_down", "comp_syncopated"]
+PatternName = str  # 'block', 'strum', 'arpeggio_up', 'charleston', 'bossa', etc.
 
 
 @dataclass
@@ -209,33 +209,26 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
                 all_events.append((on_tick, 1, "on", note, velocity))
                 all_events.append((off_tick, 0, "off", note, 0))
 
-        elif pattern == "comp_syncopated" and len(voiced) > 0:
-            # Syncopated pulses at beat offsets 0.0, 1.5, 3.0 within chord duration
-            pulse_offsets_beats = [0.0, 1.5, 3.0]
-            pulse_len_beats = 0.75
-            for offset_b in pulse_offsets_beats:
-                if offset_b >= spec.duration_beats:
-                    continue
-                p_start_tick = chord_start_tick + int(round(offset_b * TICKS_PER_BEAT))
-                p_end_b = min(spec.duration_beats, offset_b + pulse_len_beats)
-                p_end_tick = chord_start_tick + int(round(p_end_b * TICKS_PER_BEAT))
-                for note in voiced:
-                    velocity = _calc_velocity(request.humanize, rng)
+        elif len(voiced) > 0:
+            # Look up groove template and tile pulses across chord duration
+            try:
+                groove = get_groove(pattern)
+            except ValueError:
+                groove = get_groove("block")
+
+            pulses = tile_groove_pulses(groove, spec.duration_beats)
+            for pulse in pulses:
+                p_start_tick = chord_start_tick + int(round(pulse.beat_offset * TICKS_PER_BEAT))
+                p_dur_ticks = int(round(pulse.duration_beats * TICKS_PER_BEAT))
+                p_end_tick = min(chord_start_tick + duration_ticks, p_start_tick + p_dur_ticks)
+                target_notes = select_voices(voiced, pulse.voice_target)
+                for note in target_notes:
+                    velocity = _calc_velocity(request.humanize, rng, velocity_scale=pulse.velocity_scale)
                     timing_ticks = _calc_timing_offset(request.humanize, rng, ticks_per_ms)
                     on_tick = max(0, p_start_tick + timing_ticks)
                     off_tick = max(on_tick + 1, p_end_tick + timing_ticks)
                     all_events.append((on_tick, 1, "on", note, velocity))
                     all_events.append((off_tick, 0, "off", note, 0))
-
-        else:
-            # Default "block" pattern
-            for note in voiced:
-                velocity = _calc_velocity(request.humanize, rng)
-                timing_ticks = _calc_timing_offset(request.humanize, rng, ticks_per_ms)
-                on_tick = max(0, chord_start_tick + timing_ticks)
-                off_tick = max(on_tick + 1, chord_start_tick + duration_ticks + timing_ticks)
-                all_events.append((on_tick, 1, "on", note, velocity))
-                all_events.append((off_tick, 0, "off", note, 0))
 
     all_events.sort(key=lambda e: (e[0], e[1]))
 
@@ -262,8 +255,9 @@ def generate(request: GenerationRequest, output_dir: Path) -> GenerationResult:
     )
 
 
-def _calc_velocity(humanize: HumanizeSpec, rng: random.Random) -> int:
-    velocity = humanize.base_velocity
+def _calc_velocity(humanize: HumanizeSpec, rng: random.Random, velocity_scale: float = 1.0) -> int:
+    base = humanize.base_velocity * velocity_scale
+    velocity = int(round(base))
     if humanize.velocity_range > 0:
         velocity += rng.randint(-humanize.velocity_range, humanize.velocity_range)
     return max(1, min(127, velocity))

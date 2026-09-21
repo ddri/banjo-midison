@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from banjo import config
+from banjo.grooves import list_grooves
 from banjo.midi_writer import (
     ChordSpec,
     GenerationRequest,
@@ -31,13 +32,7 @@ VALID_VOICINGS: tuple[VoicingName, ...] = (
     "drop2and4",
     "spread",
 )
-VALID_PATTERNS: tuple[PatternName, ...] = (
-    "block",
-    "strum",
-    "arpeggio_up",
-    "arpeggio_down",
-    "comp_syncopated",
-)
+VALID_PATTERNS: tuple[PatternName, ...] = tuple(list_grooves())
 
 
 def parse_progression_string(

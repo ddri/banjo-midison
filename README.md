@@ -21,7 +21,7 @@ uv pip install -e ".[dev]"
 uv run pytest
 ```
 
-136 tests covering the parser, chord builder, voicings, voice leading, MIDI writer, config, CLI, and MCP server.
+148 tests covering the parser, chord builder, voicings, voice leading, grooves, MIDI writer, config, CLI, and MCP server.
 
 ## Command-line interface
 
@@ -132,12 +132,30 @@ Per-chord fields (inside the `chords` array):
 | `duration_beats` | required | Duration in beats. |
 | `voicing` | `"close"` | How chord tones are arranged. See voicings below. |
 | `rootless` | `false` | Omit the root note. Use this when a separate bass track covers the root. Not valid with `voicing: "spread"`. |
-| `pattern` | `"block"` | Playback pattern: `"block"` (simultaneous chord hold), `"strum"` (staggered onset), `"arpeggio_up"`, `"arpeggio_down"`, `"comp_syncopated"`. |
+| `pattern` | `"block"` | Playback rhythm pattern / comping groove — see grooves below. |
 | `inversion` | — | Override inversion: 0 = root, 1 = first, 2 = second, 3 = third. |
 
 **`set_output_directory`**
 
 Sets where MIDI files are written. Persisted to `~/.banjo/config.json` across restarts. Default is `~/Music/banjo/`, created on first write.
+
+### Grooves & Rhythmic Patterns
+
+Banjo separates harmonic voicings from performance patterns. Pass `--pattern <name>` on the CLI or `pattern: "<name>"` via MCP:
+
+| Pattern | Description |
+|---------|-------------|
+| `block` | Sustained chord hold across the duration (default). |
+| `strum` | Staggered 15ms guitar/harp onset delay from bass to treble. |
+| `arpeggio_up` | Sequential ascending note steps. |
+| `arpeggio_down` | Sequential descending note steps. |
+| `charleston` | Dotted-quarter (beat 1) + eighth-note stab (and-of-2) (Jazz, Neo-soul, House). |
+| `four_on_floor` | Quarter-note stabs with alternating velocity accents (Indie rock, House). |
+| `bossa` | Brazilian Bossa Nova syncopation ($E(5,16)$) with bass on half notes and offbeat chord stabs. |
+| `tresillo` | 3+3+2 syncopation on beats 0.0, 1.5, 3.0 (Latin, Afrobeats, Pop). |
+| `reggae_skank` | Upbeat offbeat chops on the "and" of the beat (Reggae, Dub, Ska). |
+| `waltz` | 3/4 meter comping: bass on beat 1, upper chord chops on beats 2 and 3. |
+| `comp_syncopated` | Syncopated comping pulses on beats 0.0, 1.5, and 3.0. |
 
 ### Voicings
 
@@ -196,6 +214,7 @@ src/banjo/
 ├── theory.py         # Roman numeral parser, modes, chord builder
 ├── voicings.py       # Voicing transformations (close, drop2, drop3, drop2and4, spread)
 ├── voice_leading.py  # Inversion + register optimisation
+├── grooves.py        # Comping grooves and performance pattern engine
 ├── midi_writer.py    # MIDI output, sidecar generation, generation pipeline
 ├── cli.py            # Standalone one-shot CLI generator
 ├── mcp_server.py     # MCP stdio server

@@ -235,6 +235,30 @@ class TestMidiWriter:
         assert result.resolved[2]["pattern"] == "arpeggio_down"
         assert result.resolved[3]["pattern"] == "comp_syncopated"
 
+    def test_grooves_generate_midi_events(self, tmp_output: Path):
+        request = GenerationRequest(
+            key_center="F", scale_type="major", bpm=100,
+            chords=[
+                ChordSpec("Imaj7", 4, pattern="charleston"),
+                ChordSpec("vi7", 4, pattern="bossa"),
+                ChordSpec("ii7", 4, pattern="four_on_floor"),
+                ChordSpec("V7", 4, pattern="tresillo"),
+            ],
+            filename="test_grooves",
+        )
+        result = generate(request, tmp_output)
+        assert result.filepath.exists()
+        assert len(result.resolved) == 4
+        assert result.resolved[0]["pattern"] == "charleston"
+        assert result.resolved[1]["pattern"] == "bossa"
+        assert result.resolved[2]["pattern"] == "four_on_floor"
+        assert result.resolved[3]["pattern"] == "tresillo"
+
+        # Verify MIDI note_on events were written
+        mid = mido.MidiFile(result.filepath)
+        note_ons = [msg for track in mid.tracks for msg in track if msg.type == "note_on" and msg.velocity > 0]
+        assert len(note_ons) > 10
+
     def test_safe_numeral_replaces_sharps_and_pluses(self):
         from banjo.midi_writer import _safe_numeral
         assert _safe_numeral("#IV") == "sIV"

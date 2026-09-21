@@ -21,6 +21,7 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
 from banjo import config
+from banjo.grooves import list_grooves
 from banjo.midi_writer import (
     ChordSpec,
     GenerationRequest,
@@ -116,15 +117,20 @@ GENERATE_MIDI_PROGRESSION_SCHEMA = {
                     },
                     "pattern": {
                         "type": "string",
-                        "enum": ["block", "strum", "arpeggio_up", "arpeggio_down", "comp_syncopated"],
+                        "enum": sorted(list_grooves()),
                         "default": "block",
                         "description": (
-                            "Rhythmic playback pattern for the chord notes. "
+                            "Rhythmic playback pattern / comping groove for the chord notes. "
                             "'block' — all notes hit simultaneously and hold for full duration. "
                             "'strum' — notes onset with a slight staggered delay from bottom to top. "
-                            "'arpeggio_up' — notes played sequentially ascending. "
-                            "'arpeggio_down' — notes played sequentially descending. "
-                            "'comp_syncopated' — syncopated pulse pattern within the chord duration."
+                            "'arpeggio_up' / 'arpeggio_down' — sequential ascending / descending notes. "
+                            "'charleston' — classic dotted-quarter (beat 1) + eighth stab (and-of-2) (Jazz, Neo-soul, House). "
+                            "'four_on_floor' — quarter-note pulses with alternating accents (Indie rock, House piano). "
+                            "'bossa' — Brazilian Bossa Nova syncopation with bass and offbeat stabs. "
+                            "'tresillo' — 3+3+2 syncopation (Afrobeats, Latin, Pop). "
+                            "'reggae_skank' — upbeat offbeat chops on the 'and' of the beat. "
+                            "'waltz' — 3/4 meter groove: bass on 1, chord chops on 2 & 3. "
+                            "'comp_syncopated' — syncopated pulses on beats 0.0, 1.5, 3.0."
                         ),
                     },
                 },
@@ -347,8 +353,11 @@ def _build_generation_request(arguments: dict) -> GenerationRequest:
             )
 
         pattern = c.get("pattern", "block")
-        if pattern not in ("block", "strum", "arpeggio_up", "arpeggio_down", "comp_syncopated"):
-            raise ValueError(f"chords[{i}]: Invalid pattern: {pattern!r}")
+        valid_patterns = set(list_grooves())
+        if pattern not in valid_patterns:
+            raise ValueError(
+                f"chords[{i}]: Invalid pattern: {pattern!r}. Valid options: {sorted(valid_patterns)}"
+            )
 
         chord_specs.append(ChordSpec(
             numeral=c["numeral"],
