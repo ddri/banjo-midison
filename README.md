@@ -1,16 +1,16 @@
-# Banjo Midison
+# Midison
 
-A MIDI chord progression generator for solo songwriters and producers. You describe what you want (such as a mood, a reference artist, a harmonic idea) and Banjo generates MIDI files you can drag straight into your DAW.
+An intelligent MIDI chord progression and groove generator for songwriters and producers. You describe what you want (such as a mood, a reference artist, or a harmonic idea) and Midison produces rich, voice-led MIDI directly in your DAW or files.
 
-It runs as an MCP server, which means your AI assistant (Claude Desktop, Claude Code, or any MCP-compatible host) becomes the interface. You talk to Claude, Claude calls Banjo, and a `.mid` file appears in your music folder alongside a `.md` document explaining what was generated and why.
+It runs as an MCP server, which means your AI assistant (Claude Desktop, Cursor, or any MCP-compatible host) becomes your composition co-producer. You talk to Claude, Claude calls Midison, and voice-led clips appear directly in your active Ableton session or your music folder alongside a `.md` harmonic analysis document.
 
-It is not a DAW. It is not a plugin. It generates self-contained MIDI clips with the root always in the chord, in a register that sits well in a mix.
+It is not a bloated plugin. It generates self-contained, voice-led MIDI clips with the root anchored in the chord and notes placed in comfortable mixing registers.
 
 ## Setup
 
 ```bash
-git clone https://github.com/ddri/banjo-midison.git
-cd banjo-midison
+git clone https://github.com/ddri/midison.git
+cd midison
 uv venv && source .venv/bin/activate
 uv pip install -e ".[dev]"
 ```
@@ -21,7 +21,7 @@ uv pip install -e ".[dev]"
 uv run pytest
 ```
 
-172 tests covering the parser, chord builder, voicings, voice leading, grooves, virtual MIDI streaming, AbletonOSC injection, Live 12 MIDI Tools, MIDI writer, config, CLI, and MCP server.
+173 tests covering the parser, chord builder, voicings, voice leading, grooves, virtual MIDI streaming, AbletonOSC injection, Live 12 MIDI Tools, MIDI writer, config, CLI, and MCP server.
 
 ## Command-line interface
 
@@ -29,40 +29,40 @@ Render progressions directly to MIDI files, stream them live into your DAW, or i
 
 ```bash
 # Basic progression (C major, 120 BPM, 4 beats per chord)
-banjo "ii7 - V7 - Imaj7"
+midison "ii7 - V7 - Imaj7"
 
-# Stream live into your armed Ableton synth via virtual MIDI port 'Banjo'
-banjo "ii7 - V7 - Imaj7" -k Eb -v drop2 -p bossa --play
+# Stream live into your armed Ableton synth via virtual MIDI port 'Midison'
+midison "ii7 - V7 - Imaj7" -k Eb -v drop2 -p bossa --play
 
 # Continuous jam loop (Ctrl+C to stop)
-banjo "i7 - iv7 - v7 - i7" -k C -m minor -p charleston --play --loop
+midison "i7 - iv7 - v7 - i7" -k C -m minor -p charleston --play --loop
 
 # Inject directly into Ableton Live Track 1, Clip 1 via AbletonOSC (zero drag-and-drop)
-banjo "Imaj9 - vi9 - ii9 - V13" -k Eb --to-ableton --track 0 --clip 0
+midison "Imaj9 - vi9 - ii9 - V13" -k Eb --to-ableton --track 0 --clip 0
 
 # Install the Live 12 Piano Roll Generator directly into Ableton
-banjo --install-m4l
+midison --install-m4l
 
 # Install AbletonOSC into your Ableton User Remote Scripts
-banjo --install-ableton-osc
+midison --install-ableton-osc
 
 # Per-chord duration using numeral:beats syntax
-banjo "ii7:2 - V7:2 - Imaj7:4" -k G --bpm 105 --pattern strum
+midison "ii7:2 - V7:2 - Imaj7:4" -k G --bpm 105 --pattern strum
 ```
 
-Files land in `~/Music/banjo/` by default alongside `.md` sidecars.
+Files land in `~/Music/midison/` by default alongside `.md` sidecars.
 
 ## Generate the audition corpus
 
 ```bash
-banjo-corpus
-# or: uv run python -m banjo.corpus
+midison-corpus
+# or: uv run python -m midison.corpus
 ```
 
 Writes 12 `.mid` files plus `.md` sidecars to `./output/` by default. Drag them into your DAW to hear what the theory engine produces across different styles and voicings.
 
 ```bash
-banjo-corpus --output-dir ~/Music/banjo-test
+midison-corpus --output-dir ~/Music/midison-test
 ```
 
 | # | What it demonstrates |
@@ -82,7 +82,7 @@ banjo-corpus --output-dir ~/Music/banjo-test
 
 ## MCP server
 
-`banjo-mcp` is a stdio-transport MCP server. Point your MCP host at it and the tools become available to your AI assistant.
+`midison-mcp` is a stdio-transport MCP server. Point your MCP host at it and the tools become available to your AI assistant.
 
 ### Connecting
 
@@ -91,26 +91,24 @@ banjo-corpus --output-dir ~/Music/banjo-test
 ```json
 {
   "mcpServers": {
-    "banjo-midison": {
-      "command": "/absolute/path/to/banjo-midison/.venv/bin/banjo-mcp"
+    "midison": {
+      "command": "/absolute/path/to/midison/.venv/bin/midison-mcp"
     }
   }
 }
 ```
 
-**Claude Code** — add to your project or global MCP settings:
+**Claude Code / Cursor** — add to your project or global MCP settings:
 
 ```json
 {
   "mcpServers": {
-    "banjo-midison": {
-      "command": "/absolute/path/to/banjo-midison/.venv/bin/banjo-mcp"
+    "midison": {
+      "command": "/absolute/path/to/midison/.venv/bin/midison-mcp"
     }
   }
 }
 ```
-
-**Other hosts** (Cursor, Continue, etc.) — the command is always `.venv/bin/banjo-mcp` from the repo root.
 
 Restart your MCP host after configuring. The five tools will appear.
 
@@ -118,9 +116,9 @@ Restart your MCP host after configuring. The five tools will appear.
 
 * **`generate_midi_progression`**: Generates a `.mid` file and `.md` sidecar from a Roman numeral progression.
 * **`send_to_ableton`**: Directly injects a progression into an active Ableton Live track and clip slot via AbletonOSC (zero drag-and-drop).
-* **`stream_to_midi_port`**: Streams notes in real-time to a macOS CoreMIDI virtual port (`"Banjo"`) to audition through armed VST instruments live.
+* **`stream_to_midi_port`**: Streams notes in real-time to a macOS CoreMIDI virtual port (`"Midison"`) to audition through armed VST instruments live.
 * **`install_ableton_integrations`**: Automatically installs AbletonOSC and the Live 12 Max Generator into your Ableton User Library.
-* **`set_output_directory`**: Sets where MIDI files are written (persisted to `~/.banjo/config.json`).
+* **`set_output_directory`**: Sets where MIDI files are written (persisted to `~/.midison/config.json`).
 
 #### `generate_midi_progression` & `send_to_ableton` Parameters
 
@@ -156,26 +154,26 @@ Per-chord fields (inside the `chords` array):
 
 ## Zero-Friction Ableton Live Workflows
 
-No more exporting files to a folder and dragging clips into your DAW. Banjo supports three native, zero-drag workflows:
+No more exporting files to a folder and dragging clips into your DAW. Midison supports three native, zero-drag workflows:
 
 ### 1. Real-time Virtual MIDI Streaming
-Streams voice-led progressions in real time to a macOS CoreMIDI virtual port named **`Banjo`**:
-* **Ableton Setup:** Arm any instrument track (e.g. loaded with Serum, Keyscape, or Diva) and set **MIDI From** to **`Banjo`**.
-* **Usage:** Run `banjo "ii7 - V7 - Imaj7" -k Eb -v drop2 -p bossa --play` or ask Claude Desktop to audition a progression using the `stream_to_midi_port` tool. Notes play through your synth live with zero latency.
+Streams voice-led progressions in real time to a macOS CoreMIDI virtual port named **`Midison`**:
+* **Ableton Setup:** Arm any instrument track (e.g. loaded with Serum, Keyscape, or Diva) and set **MIDI From** to **`Midison`**.
+* **Usage:** Run `midison "ii7 - V7 - Imaj7" -k Eb -v drop2 -p bossa --play` or ask Claude Desktop to audition a progression using the `stream_to_midi_port` tool. Notes play through your synth live with zero latency.
 
 ### 2. Direct AbletonOSC Clip Injection
 Directly instantiates and populates MIDI clips inside your active Ableton Live session over local OSC:
-* **One-time Setup:** Run `banjo --install-ableton-osc`. In Ableton Live, open **Settings (Cmd + ,) > Link/Tempo/MIDI**, and select **AbletonOSC** under **Control Surface**.
-* **Usage:** Run `banjo "ii7 - V7 - Imaj7" --to-ableton --track 0 --clip 0` or ask Claude: *"Drop an 8-bar progression into Track 1, Clip Slot 1 in Ableton and hit play."* The clip appears immediately in your session and begins looping.
+* **One-time Setup:** Run `midison --install-ableton-osc`. In Ableton Live, open **Settings (Cmd + ,) > Link/Tempo/MIDI**, and select **AbletonOSC** under **Control Surface**.
+* **Usage:** Run `midison "ii7 - V7 - Imaj7" --to-ableton --track 0 --clip 0` or ask Claude: *"Drop an 8-bar progression into Track 1, Clip Slot 1 in Ableton and hit play."* The clip appears immediately in your session and begins looping.
 
 ### 3. Native Live 12 Piano Roll Generator
 A native Max for Live MIDI Tool that lives inside Ableton Live 12's Piano Roll:
-* **One-time Setup:** Run `banjo --install-m4l` (installs `Banjo Generator.amxd` to `~/Music/Ableton/User Library/MIDI Tools/Max Generators/`).
-* **Usage:** In Ableton Live 12, double-click any MIDI clip slot to open the Piano Roll, click the **Generators** tab, and select **Banjo Generator** to compose chords and voicings directly inside Live with zero external dependencies.
+* **One-time Setup:** Run `midison --install-m4l` (installs `Midison Generator.amxd` to `~/Music/Ableton/User Library/MIDI Tools/Max Generators/`).
+* **Usage:** In Ableton Live 12, double-click any MIDI clip slot to open the Piano Roll, click the **Generators** tab, and select **Midison Generator** to compose chords and voicings directly inside Live with zero external dependencies.
 
 ### Grooves & Rhythmic Patterns
 
-Banjo separates harmonic voicings from performance patterns. Pass `--pattern <name>` on the CLI or `pattern: "<name>"` via MCP:
+Midison separates harmonic voicings from performance patterns. Pass `--pattern <name>` on the CLI or `pattern: "<name>"` via MCP:
 
 | Pattern | Description |
 |---------|-------------|
@@ -225,8 +223,8 @@ Every generation produces two files:
 ### Logs
 
 ```bash
-.venv/bin/banjo-mcp 2> /tmp/banjo-mcp.log
-tail -f /tmp/banjo-mcp.log
+.venv/bin/midison-mcp 2> /tmp/midison-mcp.log
+tail -f /tmp/midison-mcp.log
 ```
 
 ## Roman numeral grammar
@@ -244,7 +242,7 @@ Supported modes: major, minor, dorian, phrygian, lydian, mixolydian, locrian, ha
 ## Architecture
 
 ```
-src/banjo/
+src/midison/
 ├── theory.py         # Roman numeral parser, modes, chord builder
 ├── voicings.py       # Voicing transformations (close, drop2, drop3, drop2and4, spread)
 ├── voice_leading.py  # Inversion + register optimisation
@@ -257,7 +255,7 @@ src/banjo/
 ├── cli.py            # Standalone one-shot CLI generator and installer
 ├── mcp_server.py     # MCP stdio server with 5 production tools
 ├── corpus.py         # Audition corpus CLI
-└── config.py         # Persistent config (~/.banjo/config.json)
+└── config.py         # Persistent config (~/.midison/config.json)
 ```
 
 ## About

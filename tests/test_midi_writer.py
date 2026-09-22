@@ -5,7 +5,7 @@ from pathlib import Path
 import mido
 import pytest
 
-from banjo.midi_writer import (
+from midison.midi_writer import (
     ChordSpec,
     GenerationRequest,
     HumanizeSpec,
@@ -260,7 +260,7 @@ class TestMidiWriter:
         assert len(note_ons) > 10
 
     def test_safe_numeral_replaces_sharps_and_pluses(self):
-        from banjo.midi_writer import _safe_numeral
+        from midison.midi_writer import _safe_numeral
         assert _safe_numeral("#IV") == "sIV"
         assert _safe_numeral("III+") == "IIIaug"
         assert _safe_numeral("V7/vi") == "V7-of-vi"
@@ -269,7 +269,7 @@ class TestMidiWriter:
 class TestVoiceLead:
     def test_voice_lead_defaults_false_unchanged_behavior(self, tmp_path):
         # Without voice_lead, V after I lands at root position close = [67, 71, 74]
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[
@@ -283,7 +283,7 @@ class TestVoiceLead:
 
     def test_voice_lead_true_picks_smoothest_inversion(self, tmp_path):
         # Worked example: I -> V with voice_lead lands V at 1st inv, k=-1: [59,62,67]
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[
@@ -297,7 +297,7 @@ class TestVoiceLead:
         assert sorted(result.resolved[1]["midi"]) == [59, 62, 67]
 
     def test_first_chord_unchanged_with_voice_lead(self, tmp_path):
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
         spec = ChordSpec(numeral="I", duration_beats=4, voicing="close")
         off = generate(
             GenerationRequest(key_center="C", scale_type="major", bpm=120, chords=[spec]),
@@ -328,7 +328,7 @@ class TestVoiceLead:
         If this test fails, the pipeline order
         (build_chord -> apply_voicing -> shift) is wrong.
         """
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[
@@ -357,7 +357,7 @@ class TestVoiceLead:
         choice among the 5 candidates at that inversion. If a regression pins
         k=0 when inversion is explicit, this test catches it.
         """
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[
@@ -382,7 +382,7 @@ class TestVoiceLead:
 
     def test_v13_never_lands_with_extension_in_bass(self, tmp_path):
         """V13's bass note must be a chord tone (R/3/5/7), never an extension (9/11/13)."""
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[
@@ -406,7 +406,7 @@ class TestVoiceLead:
         candidates of the *same* chord, so the cross-chord count mismatch is
         only a sanity check that nothing blows up.
         """
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[
@@ -426,7 +426,7 @@ class TestVoiceLead:
         within +/-12 semitones of the starting chord. Not algorithmically
         guaranteed; the score function naturally prefers smaller |k|.
         """
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[
@@ -449,7 +449,7 @@ class TestVoiceLead:
 
     def test_voice_lead_is_deterministic(self, tmp_path):
         """Same input twice -> identical resolved metadata, byte-for-byte."""
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
 
         def make_request():
             return GenerationRequest(
@@ -475,7 +475,7 @@ class TestVoiceLead:
         numeral string); this test guards the second source of explicit-
         inversion intent.
         """
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[
@@ -503,7 +503,7 @@ class TestVoiceLead:
         parse value. Regression test for a bug where inversion always read 0
         on the voice-led path.
         """
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[
@@ -526,7 +526,7 @@ class TestVoiceLead:
         at k=-1 (the worked example, score 3). With it, only root candidates
         are searched, and the optimizer picks k=-1 [55,59,62] score 8.
         """
-        from banjo.midi_writer import ChordSpec, GenerationRequest, generate
+        from midison.midi_writer import ChordSpec, GenerationRequest, generate
         request = GenerationRequest(
             key_center="C", scale_type="major", bpm=120,
             chords=[

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from banjo.grooves import (
+from midison.grooves import (
     get_groove,
     list_grooves,
     select_voices,

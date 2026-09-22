@@ -2,7 +2,7 @@
 
 import pytest
 
-from banjo.voicings import apply_voicing
+from midison.voicings import apply_voicing
 
 
 class TestVoicings:

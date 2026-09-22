@@ -13,8 +13,8 @@ import random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from banjo.grooves import get_groove, select_voices, tile_groove_pulses
-from banjo.theory import (
+from midison.grooves import get_groove, select_voices, tile_groove_pulses
+from midison.theory import (
     ParsedNumeral,
     ResolvedChord,
     build_chord,
@@ -22,11 +22,11 @@ from banjo.theory import (
     parse_pitch_class,
     parse_roman_numeral,
 )
-from banjo.voice_leading import build_candidates, choose_voicing_position
-from banjo.voicings import apply_voicing
+from midison.voice_leading import build_candidates, choose_voicing_position
+from midison.voicings import apply_voicing
 
 if TYPE_CHECKING:
-    from banjo.midi_writer import ChordSpec, GenerationRequest, HumanizeSpec
+    from midison.midi_writer import ChordSpec, GenerationRequest, HumanizeSpec
 
 
 @dataclass(frozen=True)

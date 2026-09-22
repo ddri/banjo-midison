@@ -16,7 +16,7 @@ from typing import Literal
 
 import mido
 
-from banjo.theory import (
+from midison.theory import (
     ParsedNumeral,
     ResolvedChord,
     midi_note_name,
@@ -25,9 +25,9 @@ from banjo.theory import (
     pitch_class_name,
     build_chord,
 )
-from banjo.grooves import get_groove, select_voices, tile_groove_pulses
-from banjo.voice_leading import build_candidates, choose_voicing_position
-from banjo.voicings import VoicingName, apply_voicing
+from midison.grooves import get_groove, select_voices, tile_groove_pulses
+from midison.voice_leading import build_candidates, choose_voicing_position
+from midison.voicings import VoicingName, apply_voicing
 
 TICKS_PER_BEAT = 480  # standard PPQN
 

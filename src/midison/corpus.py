@@ -6,8 +6,8 @@ genres, modes, and harmonic devices. Drag the output into your DAW and
 audition each file to verify the generator sounds correct.
 
 Usage:
-    banjo-corpus
-    banjo-corpus --output-dir /custom/path
+    midison-corpus
+    midison-corpus --output-dir /custom/path
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from banjo.midi_writer import (
+from midison.midi_writer import (
     ChordSpec,
     GenerationRequest,
     HumanizeSpec,
@@ -307,7 +307,7 @@ CORPUS = [
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate the banjo test corpus.")
+    parser = argparse.ArgumentParser(description="Generate the midison test corpus.")
     parser.add_argument(
         "--output-dir",
         type=Path,

@@ -1,9 +1,9 @@
 """
-Command-line interface for banjo: generate MIDI chord progressions directly.
+Command-line interface for midison: generate MIDI chord progressions directly.
 
 Usage:
-    banjo "ii7 - V7 - Imaj7"
-    banjo "ii7:2 - V7:2 - Imaj7:4" -k G --bpm 100 --pattern arpeggio_up --voice-lead
+    midison "ii7 - V7 - Imaj7"
+    midison "ii7:2 - V7:2 - Imaj7:4" -k G --bpm 100 --pattern arpeggio_up --voice-lead
 """
 
 from __future__ import annotations
@@ -13,20 +13,20 @@ import re
 import sys
 from pathlib import Path
 
-from banjo import config
-from banjo.grooves import list_grooves
-from banjo.midi_writer import (
+from midison import config
+from midison.grooves import list_grooves
+from midison.midi_writer import (
     ChordSpec,
     GenerationRequest,
     HumanizeSpec,
     PatternName,
     generate,
 )
-from banjo.theory import MODE_INTERVALS, parse_pitch_class, parse_roman_numeral
-from banjo.voicings import VoicingName
-from banjo.stream import stream_progression
-from banjo.ableton import AbletonClient, install_ableton_osc
-from banjo.miditool import to_miditool_dict, install_m4l_device
+from midison.theory import MODE_INTERVALS, parse_pitch_class, parse_roman_numeral
+from midison.voicings import VoicingName
+from midison.stream import stream_progression
+from midison.ableton import AbletonClient, install_ableton_osc
+from midison.miditool import to_miditool_dict, install_m4l_device
 
 VALID_VOICINGS: tuple[VoicingName, ...] = (
     "close",
@@ -98,7 +98,7 @@ def parse_progression_string(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="banjo",
+        prog="midison",
         description="Generate MIDI chord progressions from Roman numeral analysis.",
     )
     parser.add_argument(
@@ -206,19 +206,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        help="Output directory (defaults to ~/.banjo/config.json or ~/Music/banjo/)",
+        help="Output directory (defaults to ~/.midison/config.json or ~/Music/midison/)",
     )
     parser.add_argument(
         "--play",
         "--stream",
         dest="stream",
         action="store_true",
-        help="Stream notes in real-time to macOS virtual MIDI port ('Banjo') or specified --port",
+        help="Stream notes in real-time to macOS virtual MIDI port ('Midison') or specified --port",
     )
     parser.add_argument(
         "--port",
-        default="Banjo",
-        help="Target MIDI port for --play/--stream (default: 'Banjo')",
+        default="Midison",
+        help="Target MIDI port for --play/--stream (default: 'Midison')",
     )
     parser.add_argument(
         "--loop",
@@ -262,7 +262,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--install-m4l",
         action="store_true",
-        help="Install Banjo Generator.amxd into Ableton Live 12 MIDI Tools",
+        help="Install Midison Generator.amxd into Ableton Live 12 MIDI Tools",
     )
     parser.add_argument(
         "-f",
@@ -293,12 +293,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.install_m4l:
         try:
             installed_path = install_m4l_device()
-            print(f"\n✓ Installed Banjo Generator.amxd successfully to:")
+            print(f"\n✓ Installed Midison Generator.amxd successfully to:")
             print(f"  {installed_path}")
             print("\nNext step in Ableton Live 12:")
             print("  1. Open the Piano Roll / Clip View on any MIDI clip.")
             print("  2. Click the 'Generators' tab.")
-            print("  3. Select 'Banjo Generator' to compose chords and grooves directly inside Live!")
+            print("  3. Select 'Midison Generator' to compose chords and grooves directly inside Live!")
             return 0
         except Exception as e:
             print(f"Error installing Max for Live MIDI tool: {e}", file=sys.stderr)

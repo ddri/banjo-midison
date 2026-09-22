@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from banjo.ableton import (
+from midison.ableton import (
     AbletonClient,
     find_ableton_remote_scripts_dir,
     install_ableton_osc,
 )
-from banjo.events import TimedNote
-from banjo.midi_writer import ChordSpec, GenerationRequest
+from midison.events import TimedNote
+from midison.midi_writer import ChordSpec, GenerationRequest
 
 
 def test_ableton_client_sends_create_clip():

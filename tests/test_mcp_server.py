@@ -9,14 +9,16 @@ from pathlib import Path
 
 import pytest
 
-from banjo import config, mcp_server
+from midison import config, mcp_server
 
 
 @pytest.fixture(autouse=True)
 def isolated_config_dir(tmp_path, monkeypatch):
     """Redirect both CONFIG_DIR and the default output dir to tmp."""
-    monkeypatch.setattr(config, "CONFIG_DIR", tmp_path / ".banjo")
-    monkeypatch.setattr(config, "DEFAULT_OUTPUT_DIR", tmp_path / "Music" / "banjo")
+    monkeypatch.setattr(config, "CONFIG_DIR", tmp_path / ".midison")
+    monkeypatch.setattr(config, "LEGACY_CONFIG_DIR", tmp_path / ".banjo")
+    monkeypatch.setattr(config, "DEFAULT_OUTPUT_DIR", tmp_path / "Music" / "midison")
+    monkeypatch.setattr(config, "LEGACY_OUTPUT_DIR", tmp_path / "Music" / "banjo_legacy")
     return tmp_path
 
 
@@ -158,7 +160,7 @@ def test_generate_bad_scale_raises():
 def test_generate_creates_default_output_dir(isolated_config_dir, tmp_path, monkeypatch):
     """When no config is set, falls back to DEFAULT_OUTPUT_DIR (created on first write)."""
     # isolated_config_dir fixture already redirects DEFAULT_OUTPUT_DIR into tmp_path.
-    default_out = tmp_path / "Music" / "banjo"
+    default_out = tmp_path / "Music" / "midison"
     assert not default_out.exists()
 
     result = mcp_server.handle_generate_midi_progression({
@@ -326,14 +328,14 @@ def test_invalid_pattern_raises(isolated_config_dir, tmp_path):
 
 class TestVoiceLeadPlumbing:
     def test_voice_lead_in_schema_with_default_false(self):
-        from banjo.mcp_server import GENERATE_MIDI_PROGRESSION_SCHEMA
+        from midison.mcp_server import GENERATE_MIDI_PROGRESSION_SCHEMA
         prop = GENERATE_MIDI_PROGRESSION_SCHEMA["properties"].get("voice_lead")
         assert prop is not None, "voice_lead missing from schema"
         assert prop["type"] == "boolean"
         assert prop["default"] is False
 
     def test_handler_passes_voice_lead_true_through(self):
-        from banjo.mcp_server import _build_generation_request
+        from midison.mcp_server import _build_generation_request
         req = _build_generation_request({
             "key_center": "C", "scale_type": "major", "bpm": 120,
             "chords": [{"numeral": "I", "duration_beats": 4}],
@@ -342,7 +344,7 @@ class TestVoiceLeadPlumbing:
         assert req.voice_lead is True
 
     def test_handler_defaults_voice_lead_to_false(self):
-        from banjo.mcp_server import _build_generation_request
+        from midison.mcp_server import _build_generation_request
         req = _build_generation_request({
             "key_center": "C", "scale_type": "major", "bpm": 120,
             "chords": [{"numeral": "I", "duration_beats": 4}],
@@ -365,7 +367,7 @@ def test_handle_send_to_ableton(isolated_config_dir, tmp_path):
         "fired": True,
     }
 
-    with patch("banjo.mcp_server.AbletonClient", return_value=mock_client):
+    with patch("midison.mcp_server.AbletonClient", return_value=mock_client):
         res = mcp_server.handle_send_to_ableton({
             "key_center": "Eb",
             "scale_type": "major",
@@ -389,7 +391,7 @@ def test_handle_stream_to_midi_port(isolated_config_dir, tmp_path):
     mock_resolved.total_beats = 4.0
     mock_resolved.resolved_metadata = [{"numeral": "I"}]
 
-    with patch("banjo.mcp_server.stream_progression", return_value=mock_resolved) as mock_stream:
+    with patch("midison.mcp_server.stream_progression", return_value=mock_resolved) as mock_stream:
         res = mcp_server.handle_stream_to_midi_port({
             "key_center": "C",
             "scale_type": "major",
@@ -410,10 +412,10 @@ def test_handle_install_ableton_integrations(tmp_path):
     from pathlib import Path
 
     fake_osc = tmp_path / "Remote Scripts" / "AbletonOSC"
-    fake_m4l = tmp_path / "Max Generators" / "Banjo Generator.amxd"
+    fake_m4l = tmp_path / "Max Generators" / "Midison Generator.amxd"
 
-    with patch("banjo.mcp_server.install_ableton_osc", return_value=fake_osc), \
-         patch("banjo.mcp_server.install_m4l_device", return_value=fake_m4l):
+    with patch("midison.mcp_server.install_ableton_osc", return_value=fake_osc), \
+         patch("midison.mcp_server.install_m4l_device", return_value=fake_m4l):
         res = mcp_server.handle_install_ableton_integrations({
             "install_ableton_osc": True,
             "install_max_generator": True,

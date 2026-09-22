@@ -1,12 +1,11 @@
-# src/banjo/mcp_server.py
 """
-MCP server wrapping banjo's MIDI generator.
+MCP server wrapping midison's MIDI generator.
 
 Transport: stdio (for use from Claude Desktop or any MCP host).
 
 Exposes:
   - generate_midi_progression: render a Roman numeral progression to MIDI.
-  - set_output_directory: persist the output directory to ~/.banjo/config.json.
+  - set_output_directory: persist the output directory to ~/.midison/config.json.
 """
 
 from __future__ import annotations
@@ -20,22 +19,22 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from banjo import config
-from banjo.grooves import list_grooves
-from banjo.midi_writer import (
+from midison import config
+from midison.grooves import list_grooves
+from midison.midi_writer import (
     ChordSpec,
     GenerationRequest,
     HumanizeSpec,
     generate,
 )
-from banjo.theory import MODE_INTERVALS, parse_pitch_class
-from banjo.stream import stream_progression
-from banjo.ableton import AbletonClient, install_ableton_osc
-from banjo.miditool import install_m4l_device
+from midison.theory import MODE_INTERVALS, parse_pitch_class
+from midison.stream import stream_progression
+from midison.ableton import AbletonClient, install_ableton_osc
+from midison.miditool import install_m4l_device
 
-logger = logging.getLogger("banjo.mcp")
+logger = logging.getLogger("midison.mcp")
 
-server: Server = Server("banjo-midison")
+server: Server = Server("midison")
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +237,7 @@ SET_OUTPUT_DIRECTORY_SCHEMA = {
             "type": "string",
             "description": (
                 "Absolute or ~-prefixed directory path. Created on first write. "
-                "Persisted to ~/.banjo/config.json across server restarts."
+                "Persisted to ~/.midison/config.json across server restarts."
             ),
         },
     },
@@ -277,8 +276,8 @@ STREAM_TO_MIDI_PORT_SCHEMA = {
         **GENERATE_MIDI_PROGRESSION_SCHEMA["properties"],
         "port_name": {
             "type": "string",
-            "default": "Banjo",
-            "description": "Name of the macOS virtual or hardware MIDI output port (defaults to 'Banjo').",
+            "default": "Midison",
+            "description": "Name of the macOS virtual or hardware MIDI output port (defaults to 'Midison').",
         },
         "loop": {
             "type": "boolean",
@@ -299,7 +298,7 @@ INSTALL_ABLETON_INTEGRATIONS_SCHEMA = {
         "install_max_generator": {
             "type": "boolean",
             "default": True,
-            "description": "Install Banjo Generator.amxd into Live 12 MIDI Tools / Max Generators.",
+            "description": "Install Midison Generator.amxd into Live 12 MIDI Tools / Max Generators.",
         },
     },
 }
@@ -351,7 +350,7 @@ async def list_tools() -> list[Tool]:
             name="set_output_directory",
             description=(
                 "Set the directory where generated MIDI files are written. "
-                "The setting is persisted to ~/.banjo/config.json across "
+                "The setting is persisted to ~/.midison/config.json across "
                 "Claude Desktop restarts."
             ),
             inputSchema=SET_OUTPUT_DIRECTORY_SCHEMA,
@@ -502,7 +501,7 @@ def handle_send_to_ableton(arguments: dict) -> dict:
 def handle_stream_to_midi_port(arguments: dict) -> dict:
     """Stream notes in real-time to a macOS virtual MIDI port or hardware port."""
     request = _build_generation_request(arguments)
-    port_name = str(arguments.get("port_name", "Banjo"))
+    port_name = str(arguments.get("port_name", "Midison"))
     loop = bool(arguments.get("loop", False))
 
     resolved = stream_progression(request, port_name=port_name, loop=loop)
@@ -517,7 +516,7 @@ def handle_stream_to_midi_port(arguments: dict) -> dict:
 
 
 def handle_install_ableton_integrations(arguments: dict) -> dict:
-    """Install AbletonOSC and/or Banjo Generator into Ableton user directories."""
+    """Install AbletonOSC and/or Midison Generator into Ableton user directories."""
     installed: dict[str, str] = {}
     if arguments.get("install_ableton_osc", True):
         osc_path = install_ableton_osc()
@@ -530,7 +529,7 @@ def handle_install_ableton_integrations(arguments: dict) -> dict:
         "installed_paths": installed,
         "instructions": (
             "1. In Ableton Live Settings > Link/Tempo/MIDI > Control Surface, select 'AbletonOSC'. "
-            "2. In Live 12 Piano Roll, click 'Generators' tab to use 'Banjo Generator'."
+            "2. In Live 12 Piano Roll, click 'Generators' tab to use 'Midison Generator'."
         ),
     }
 

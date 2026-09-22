@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from banjo.theory import (
+from midison.theory import (
     QUALITY_AUGMENTED,
     QUALITY_DIMINISHED,
     QUALITY_MAJOR,

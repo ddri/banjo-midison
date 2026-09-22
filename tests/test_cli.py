@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from banjo.cli import main, parse_progression_string
+from midison.cli import main, parse_progression_string
 
 
 class TestParseProgressionString:
@@ -121,7 +121,7 @@ class TestCliMain:
 
     def test_install_ableton_osc_flag(self, capsys, monkeypatch):
         from unittest.mock import patch
-        with patch("banjo.cli.install_ableton_osc", return_value=Path("/mock/AbletonOSC")):
+        with patch("midison.cli.install_ableton_osc", return_value=Path("/mock/AbletonOSC")):
             exit_code = main(["--install-ableton-osc"])
         assert exit_code == 0
         captured = capsys.readouterr()
@@ -129,11 +129,11 @@ class TestCliMain:
 
     def test_install_m4l_flag(self, capsys):
         from unittest.mock import patch
-        with patch("banjo.cli.install_m4l_device", return_value=Path("/mock/Banjo Generator.amxd")):
+        with patch("midison.cli.install_m4l_device", return_value=Path("/mock/Midison Generator.amxd")):
             exit_code = main(["--install-m4l"])
         assert exit_code == 0
         captured = capsys.readouterr()
-        assert "Installed Banjo Generator.amxd successfully" in captured.out
+        assert "Installed Midison Generator.amxd successfully" in captured.out
 
     def test_to_ableton_flag(self, capsys, tmp_path):
         from unittest.mock import MagicMock, patch
@@ -142,7 +142,7 @@ class TestCliMain:
             "status": "success", "track_index": 0, "clip_index": 0,
             "total_beats": 4.0, "notes_count": 8, "fired": True,
         }
-        with patch("banjo.cli.AbletonClient", return_value=mock_client):
+        with patch("midison.cli.AbletonClient", return_value=mock_client):
             exit_code = main(["ii7 - V7", "--to-ableton", "--output-dir", str(tmp_path)])
         assert exit_code == 0
         captured = capsys.readouterr()
@@ -150,7 +150,7 @@ class TestCliMain:
 
     def test_play_stream_flag(self, capsys, tmp_path):
         from unittest.mock import patch
-        with patch("banjo.cli.stream_progression") as mock_stream:
+        with patch("midison.cli.stream_progression") as mock_stream:
             exit_code = main(["ii7 - V7", "--play", "--output-dir", str(tmp_path)])
         assert exit_code == 0
         mock_stream.assert_called_once()

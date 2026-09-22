@@ -4,12 +4,12 @@ Unit tests for Ableton Live 12 MIDI Tool and AMXD builder (banjo.miditool).
 
 from pathlib import Path
 
-from banjo.midi_writer import ChordSpec, GenerationRequest
-from banjo.miditool import (
+from midison.midi_writer import ChordSpec, GenerationRequest
+from midison.miditool import (
     build_amxd_device,
     create_amxd_container,
     find_ableton_midi_tools_dir,
-    get_banjo_generator_patcher,
+    get_midison_generator_patcher,
     install_m4l_device,
     to_miditool_dict,
 )
@@ -79,5 +79,5 @@ def test_install_m4l_device_in_custom_dir(tmp_path):
     out_device = install_m4l_device(dest_dir)
 
     assert out_device.exists()
-    assert out_device.name == "Banjo Generator.amxd"
+    assert out_device.name == "Midison Generator.amxd"
     assert out_device.stat().st_size > 500

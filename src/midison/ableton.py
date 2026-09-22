@@ -16,10 +16,10 @@ from typing import Any
 
 from pythonosc import osc_message_builder, udp_client
 
-from banjo.events import ResolvedProgression, TimedNote, resolve_progression_notes
-from banjo.midi_writer import GenerationRequest
+from midison.events import ResolvedProgression, TimedNote, resolve_progression_notes
+from midison.midi_writer import GenerationRequest
 
-logger = logging.getLogger("banjo.ableton")
+logger = logging.getLogger("midison.ableton")
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_SEND_PORT = 11000      # AbletonOSC listens here

@@ -1,5 +1,5 @@
 """
-Groove and performance pattern templates for banjo.
+Groove and performance pattern templates for midison.
 
 Decouples harmonic chord voicings from rhythmic performance expressions.
 """

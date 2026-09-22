@@ -15,10 +15,10 @@ from typing import Callable
 
 import mido
 
-from banjo.events import ResolvedProgression, TimedNote, resolve_progression_notes
-from banjo.midi_writer import GenerationRequest
+from midison.events import ResolvedProgression, TimedNote, resolve_progression_notes
+from midison.midi_writer import GenerationRequest
 
-logger = logging.getLogger("banjo.stream")
+logger = logging.getLogger("midison.stream")
 
 
 def get_available_output_ports() -> list[str]:
@@ -30,7 +30,7 @@ def get_available_output_ports() -> list[str]:
         return []
 
 
-def open_midi_output(port_name: str = "Banjo") -> mido.ports.BaseOutput:
+def open_midi_output(port_name: str = "Midison") -> mido.ports.BaseOutput:
     """
     Open a MIDI output port. Attempts to create a virtual port first.
     If virtual ports are not supported by the backend, falls back to an existing port.
@@ -67,7 +67,7 @@ def stream_notes(
     bpm: int = 120,
     total_beats: float | None = None,
     port: mido.ports.BaseOutput | None = None,
-    port_name: str = "Banjo",
+    port_name: str = "Midison",
     loop: bool = False,
     stop_event: threading.Event | None = None,
     on_event: Callable[[str, int, float], None] | None = None,
@@ -172,7 +172,7 @@ def stream_notes(
 
 def stream_progression(
     request: GenerationRequest,
-    port_name: str = "Banjo",
+    port_name: str = "Midison",
     loop: bool = False,
     stop_event: threading.Event | None = None,
 ) -> ResolvedProgression:

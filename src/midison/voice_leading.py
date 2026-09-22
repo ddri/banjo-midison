@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import dataclasses
 
-from banjo.theory import ParsedNumeral, build_chord
-from banjo.voicings import VoicingName, apply_voicing
+from midison.theory import ParsedNumeral, build_chord
+from midison.voicings import VoicingName, apply_voicing
 
 
 def _voicing_distance(candidate: list[int], previous: list[int]) -> int:

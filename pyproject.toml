@@ -1,5 +1,5 @@
 [project]
-name = "banjo-midison"
+name = "midison"
 version = "0.4.0"
 description = "MIDI chord progression generator as an MCP Server."
 license = {text = "MIT"}
@@ -17,16 +17,19 @@ dev = [
 ]
 
 [project.scripts]
-banjo = "banjo.cli:main"
-banjo-corpus = "banjo.corpus:main"
-banjo-mcp = "banjo.mcp_server:main"
+midison = "midison.cli:main"
+midison-corpus = "midison.corpus:main"
+midison-mcp = "midison.mcp_server:main"
+banjo = "midison.cli:main"
+banjo-corpus = "midison.corpus:main"
+banjo-mcp = "midison.mcp_server:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/banjo"]
+packages = ["src/midison"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

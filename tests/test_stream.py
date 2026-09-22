@@ -9,9 +9,9 @@ from unittest.mock import MagicMock, patch
 import mido
 import pytest
 
-from banjo.events import TimedNote
-from banjo.midi_writer import ChordSpec, GenerationRequest
-from banjo.stream import (
+from midison.events import TimedNote
+from midison.midi_writer import ChordSpec, GenerationRequest
+from midison.stream import (
     get_available_output_ports,
     open_midi_output,
     stop_all_notes,
@@ -89,7 +89,7 @@ def test_stream_progression_resolves_and_plays():
         chords=[ChordSpec(numeral="I", duration_beats=0.5)],
     )
 
-    with patch("banjo.stream.open_midi_output", return_value=mock_port):
+    with patch("midison.stream.open_midi_output", return_value=mock_port):
         resolved = stream_progression(req, port_name="MockPort", loop=False)
 
     assert len(resolved.notes) >= 3

@@ -1,5 +1,5 @@
 """
-Music theory primitives for banjo.
+Music theory primitives for midison.
 
 Conventions:
 - Pitch class: integer 0-11, where 0 = C, 1 = C#/Db, ..., 11 = B.

@@ -2,8 +2,8 @@
 
 import pytest
 
-from banjo.theory import parse_roman_numeral, parse_pitch_class
-from banjo.voice_leading import _voicing_distance, choose_voicing_position, build_candidates
+from midison.theory import parse_roman_numeral, parse_pitch_class
+from midison.voice_leading import _voicing_distance, choose_voicing_position, build_candidates
 
 
 class TestVoicingDistance:

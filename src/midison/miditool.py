@@ -2,7 +2,7 @@
 Ableton Live 12 Native MIDI Tool and Max for Live integration.
 
 Generates native dictionaries for `live.miditool.out` and builds/installs
-the `Banjo Generator.amxd` MIDI Tool directly into Ableton Live 12's
+the `Midison Generator.amxd` MIDI Tool directly into Ableton Live 12's
 `MIDI Tools/Max Generators` user library folder.
 """
 
@@ -13,10 +13,10 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from banjo.events import ResolvedProgression, TimedNote, resolve_progression_notes
-from banjo.midi_writer import GenerationRequest
+from midison.events import ResolvedProgression, TimedNote, resolve_progression_notes
+from midison.midi_writer import GenerationRequest
 
-logger = logging.getLogger("banjo.miditool")
+logger = logging.getLogger("midison.miditool")
 
 
 def to_miditool_dict(request: GenerationRequest) -> dict[str, Any]:
@@ -77,9 +77,9 @@ def create_amxd_container(patcher_json: dict[str, Any], device_type: str = "nagg
     return header + json_bytes
 
 
-def get_banjo_generator_patcher() -> dict[str, Any]:
+def get_midison_generator_patcher() -> dict[str, Any]:
     """
-    Generate the Max Patcher JSON definition for Banjo Generator (Live 12 MIDI Tool).
+    Generate the Max Patcher JSON definition for Midison Generator (Live 12 MIDI Tool).
     """
     js_code = """
 autowatch = 1;
@@ -227,7 +227,7 @@ function dictionary(dictName) {
                     "box": {
                         "id": "obj-title",
                         "maxclass": "live.comment",
-                        "text": "🪕 Banjo Midison Generator",
+                        "text": "🎹 Midison Generator",
                         "presentation": 1,
                         "presentation_rect": [10.0, 10.0, 200.0, 20.0],
                     }
@@ -261,10 +261,10 @@ function dictionary(dictName) {
 
 
 def build_amxd_device(output_path: Path) -> Path:
-    """Build the Banjo Generator.amxd file."""
+    """Build the Midison Generator.amxd file."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    patcher = get_banjo_generator_patcher()
+    patcher = get_midison_generator_patcher()
     amxd_bytes = create_amxd_container(patcher, device_type="nagg")
     output_path.write_bytes(amxd_bytes)
     return output_path
@@ -272,7 +272,7 @@ def build_amxd_device(output_path: Path) -> Path:
 
 def install_m4l_device(target_dir: Path | None = None) -> Path:
     """
-    Install Banjo Generator.amxd into Ableton Live 12's user MIDI Tools folder.
+    Install Midison Generator.amxd into Ableton Live 12's user MIDI Tools folder.
     """
     if target_dir is None:
         target_dir = find_ableton_midi_tools_dir()
@@ -280,6 +280,6 @@ def install_m4l_device(target_dir: Path | None = None) -> Path:
         target_dir = Path(target_dir)
 
     target_dir.mkdir(parents=True, exist_ok=True)
-    device_path = target_dir / "Banjo Generator.amxd"
+    device_path = target_dir / "Midison Generator.amxd"
     build_amxd_device(device_path)
     return device_path
