@@ -81,3 +81,92 @@ def test_install_m4l_device_in_custom_dir(tmp_path):
     assert out_device.exists()
     assert out_device.name == "Midison Generator.amxd"
     assert out_device.stat().st_size > 500
+
+
+def test_generator_patcher_presentation_and_controls():
+    patcher_dict = get_midison_generator_patcher()
+    p = patcher_dict["patcher"]
+
+    assert p["openinpresentation"] == 1
+    assert p["openrect"][2] == 152.0  # Standard Live 12 panel width
+
+    box_ids = {b["box"]["id"]: b["box"] for b in p["boxes"]}
+
+    # Core I/O and JS engine
+    assert "obj-in" in box_ids
+    assert box_ids["obj-in"]["text"] == "live.miditool.in"
+    assert "obj-out" in box_ids
+    assert box_ids["obj-out"]["text"] == "live.miditool.out"
+    assert "obj-js" in box_ids
+    assert "js midison_generator.js" in box_ids["obj-js"]["text"]
+
+    # UI Controls
+    assert "obj-menu-preset" in box_ids
+    assert box_ids["obj-menu-preset"]["maxclass"] == "live.menu"
+    assert "obj-menu-voicing" in box_ids
+    assert box_ids["obj-menu-voicing"]["maxclass"] == "live.menu"
+    assert "obj-menu-groove" in box_ids
+    assert box_ids["obj-menu-groove"]["maxclass"] == "live.menu"
+    assert "obj-num-oct" in box_ids
+    assert box_ids["obj-num-oct"]["maxclass"] == "live.numbox"
+    assert "obj-btn-human" in box_ids
+    assert box_ids["obj-btn-human"]["maxclass"] == "live.text"
+    assert "obj-btn-lead" in box_ids
+    assert box_ids["obj-btn-lead"]["maxclass"] == "live.text"
+    assert "obj-btn-rootless" in box_ids
+    assert box_ids["obj-btn-rootless"]["maxclass"] == "live.text"
+    assert "obj-btn-generate" in box_ids
+    assert box_ids["obj-btn-generate"]["maxclass"] == "live.text"
+
+    # Presentation rects on all interactive widgets
+    interactive_ids = [
+        "obj-menu-preset", "obj-menu-voicing", "obj-menu-groove",
+        "obj-num-oct", "obj-btn-human", "obj-btn-lead", "obj-btn-rootless", "obj-btn-generate"
+    ]
+    for bid in interactive_ids:
+        box = box_ids[bid]
+        assert box.get("presentation") == 1
+        assert "presentation_rect" in box
+
+    # Verify lines
+    lines = p["lines"]
+    assert len(lines) >= 15
+    dest_set = {line["patchline"]["destination"][0] for line in lines}
+    assert "obj-js" in dest_set
+    assert "obj-out" in dest_set
+
+
+def test_generator_embedded_js_syntax():
+    import subprocess
+    from midison.miditool import MIDISON_GENERATOR_JS
+
+    # Check key function names
+    for fn in ["function generate", "function dictionary", "function preset", "function voicing", "function groove"]:
+        assert fn in MIDISON_GENERATOR_JS
+
+    # Validate JavaScript syntax with Node
+    script = f"""
+    // Mock Max Dict and outlet
+    function Dict(name) {{
+        this.name = name || "d1";
+        this.contains = function() {{ return false; }};
+        this.get = function() {{ return null; }};
+        this.parse = function() {{}};
+    }}
+    function outlet(idx, type, val) {{}}
+
+    {MIDISON_GENERATOR_JS}
+
+    // Call handlers to verify no runtime syntax/reference errors
+    preset(0);
+    voicing("Drop 2");
+    groove("Charleston");
+    octave(3);
+    voice_lead(1);
+    rootless(0);
+    humanize(1);
+    generate();
+    """
+    res = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+    assert res.returncode == 0, f"Node syntax validation failed: {res.stderr}"
+
