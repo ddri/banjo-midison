@@ -125,8 +125,8 @@ def build_parser() -> argparse.ArgumentParser:
         "-b",
         "--bpm",
         type=int,
-        default=120,
-        help="Tempo in beats per minute (default: 120)",
+        default=None,
+        help="Tempo in beats per minute (default: 120, or auto-synced from Ableton Live session)",
     )
     parser.add_argument(
         "-d",
@@ -233,14 +233,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--track",
         type=int,
-        default=0,
-        help="Ableton Live track index for --to-ableton (default: 0)",
+        default=None,
+        help="Ableton Live track index for --to-ableton (default: active track in Live, or 0)",
     )
     parser.add_argument(
         "--clip",
         type=int,
-        default=0,
-        help="Ableton Live clip slot index for --to-ableton (default: 0)",
+        default=None,
+        help="Ableton Live clip slot index for --to-ableton (default: active clip slot in Live, or 0)",
     )
     parser.add_argument(
         "--no-fire",
@@ -347,10 +347,38 @@ def main(argv: list[str] | None = None) -> int:
         base_velocity=args.base_velocity,
     )
 
+    bpm = args.bpm
+    target_track = args.track
+    target_clip = args.clip
+
+    if args.to_ableton:
+        client = AbletonClient()
+        session_state = client.query_session_state()
+        if getattr(session_state, "connected", False) is True:
+            if target_track is None:
+                target_track = session_state.selected_track
+            if target_clip is None:
+                target_clip = session_state.selected_scene
+            if bpm is None:
+                bpm = int(round(session_state.tempo))
+            key_info = f" | Live Key: {session_state.key_name} {session_state.scale_name}" if session_state.key_name else ""
+            print(f"\n⚡ Synced with Ableton Live: {session_state.tempo:.1f} BPM ({session_state.time_signature}){key_info}")
+            print(f"  Target: Track {target_track + 1} (idx {target_track}), Clip Slot {target_clip + 1} (idx {target_clip})")
+        else:
+            if target_track is None:
+                target_track = 0
+            if target_clip is None:
+                target_clip = 0
+            if bpm is None:
+                bpm = 120
+            print(f"\nℹ Ableton Live session sync offline (using Track {target_track + 1} [idx {target_track}], Clip Slot {target_clip + 1} [idx {target_clip}])")
+    elif bpm is None:
+        bpm = 120
+
     request = GenerationRequest(
         key_center=args.key,
         scale_type=args.scale_type,
-        bpm=args.bpm,
+        bpm=bpm,
         chords=chords,
         octave=args.octave,
         max_octave=args.max_octave,
@@ -371,13 +399,14 @@ def main(argv: list[str] | None = None) -> int:
         try:
             injected = client.inject_progression(
                 request,
-                track_index=args.track,
-                clip_index=args.clip,
+                track_index=target_track,
+                clip_index=target_clip,
                 fire=args.fire,
+                sync_session=False,
             )
             print(f"\n✓ Injected directly into Ableton Live:")
-            print(f"  Track:        {args.track}")
-            print(f"  Clip Slot:    {args.clip}")
+            print(f"  Track:        Track {target_track + 1} (idx {target_track})")
+            print(f"  Clip Slot:    Clip Slot {target_clip + 1} (idx {target_clip})")
             print(f"  Total Notes:  {injected['notes_count']}")
             print(f"  Duration:     {injected['total_beats']:.1f} beats")
             print(f"  Launched:     {'Yes' if args.fire else 'No'}")
@@ -386,7 +415,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     if args.stream:
-        print(f"\n▶ Streaming live to MIDI port '{args.port}' ({args.bpm} BPM)...")
+        print(f"\n▶ Streaming live to MIDI port '{args.port}' ({request.bpm} BPM)...")
         if args.loop:
             print("  Looping continuously. Press Ctrl+C to stop.")
         try:
@@ -410,7 +439,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  File:     {result.filepath}")
     print(f"  Sidecar:  {result.sidecar_path}")
     print(
-        f"  Details:  {args.key} {args.scale_type} | {args.bpm} BPM | {result.total_beats:.1f} beats total\n"
+        f"  Details:  {args.key} {args.scale_type} | {request.bpm} BPM | {result.total_beats:.1f} beats total\n"
     )
 
     header = f"  {'#':<3} {'Numeral':<10} {'Start':<7} {'Dur':<6} {'Voicing':<10} {'Pattern':<12} {'Notes'}"

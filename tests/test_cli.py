@@ -135,9 +135,12 @@ class TestCliMain:
         captured = capsys.readouterr()
         assert "Installed Midison Generator.amxd successfully" in captured.out
 
-    def test_to_ableton_flag(self, capsys, tmp_path):
+    def test_to_ableton_flag_offline(self, capsys, tmp_path):
         from unittest.mock import MagicMock, patch
+        from midison.ableton import AbletonSessionState
+
         mock_client = MagicMock()
+        mock_client.query_session_state.return_value = AbletonSessionState(connected=False)
         mock_client.inject_progression.return_value = {
             "status": "success", "track_index": 0, "clip_index": 0,
             "total_beats": 4.0, "notes_count": 8, "fired": True,
@@ -146,7 +149,71 @@ class TestCliMain:
             exit_code = main(["ii7 - V7", "--to-ableton", "--output-dir", str(tmp_path)])
         assert exit_code == 0
         captured = capsys.readouterr()
+        assert "session sync offline" in captured.out
         assert "Injected directly into Ableton Live" in captured.out
+        assert "Track:        Track 1 (idx 0)" in captured.out
+
+    def test_to_ableton_flag_online_sync(self, capsys, tmp_path):
+        from unittest.mock import MagicMock, patch
+        from midison.ableton import AbletonSessionState
+
+        mock_client = MagicMock()
+        mock_client.query_session_state.return_value = AbletonSessionState(
+            connected=True,
+            tempo=126.0,
+            signature_numerator=4,
+            signature_denominator=4,
+            selected_track=2,
+            selected_scene=1,
+            root_note=0,
+            scale_name="Major",
+        )
+        mock_client.inject_progression.return_value = {
+            "status": "success", "track_index": 2, "clip_index": 1,
+            "total_beats": 4.0, "notes_count": 8, "fired": True,
+        }
+        with patch("midison.cli.AbletonClient", return_value=mock_client):
+            exit_code = main(["ii7 - V7", "--to-ableton", "--output-dir", str(tmp_path)])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "⚡ Synced with Ableton Live: 126.0 BPM (4/4)" in captured.out
+        assert "Target: Track 3 (idx 2), Clip Slot 2 (idx 1)" in captured.out
+        assert "Track:        Track 3 (idx 2)" in captured.out
+        mock_client.inject_progression.assert_called_once()
+        call_args = mock_client.inject_progression.call_args
+        assert call_args.kwargs["track_index"] == 2
+        assert call_args.kwargs["clip_index"] == 1
+        req = call_args.args[0]
+        assert req.bpm == 126
+
+    def test_to_ableton_flag_user_override(self, capsys, tmp_path):
+        from unittest.mock import MagicMock, patch
+        from midison.ableton import AbletonSessionState
+
+        mock_client = MagicMock()
+        mock_client.query_session_state.return_value = AbletonSessionState(
+            connected=True,
+            tempo=126.0,
+            selected_track=0,
+            selected_scene=0,
+        )
+        mock_client.inject_progression.return_value = {
+            "status": "success", "track_index": 5, "clip_index": 3,
+            "total_beats": 4.0, "notes_count": 8, "fired": True,
+        }
+        with patch("midison.cli.AbletonClient", return_value=mock_client):
+            exit_code = main([
+                "ii7 - V7", "--to-ableton", "-b", "145", "--track", "5", "--clip", "3",
+                "--output-dir", str(tmp_path)
+            ])
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "Target: Track 6 (idx 5), Clip Slot 4 (idx 3)" in captured.out
+        call_args = mock_client.inject_progression.call_args
+        assert call_args.kwargs["track_index"] == 5
+        assert call_args.kwargs["clip_index"] == 3
+        req = call_args.args[0]
+        assert req.bpm == 145
 
     def test_play_stream_flag(self, capsys, tmp_path):
         from unittest.mock import patch

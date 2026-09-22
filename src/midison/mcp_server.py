@@ -244,27 +244,50 @@ SET_OUTPUT_DIRECTORY_SCHEMA = {
     "required": ["path"],
 }
 
+GET_ABLETON_SESSION_STATE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "timeout": {
+            "type": "number",
+            "default": 0.3,
+            "description": "Timeout in seconds to wait for Ableton Live OSC response (default: 0.3).",
+        },
+    },
+}
+
 SEND_TO_ABLETON_SCHEMA = {
     "type": "object",
-    "required": ["key_center", "scale_type", "bpm", "chords"],
+    "required": ["key_center", "scale_type", "chords"],
     "properties": {
         **GENERATE_MIDI_PROGRESSION_SCHEMA["properties"],
         "track_index": {
             "type": "integer",
             "minimum": 0,
-            "default": 0,
-            "description": "Ableton Live track index (0-indexed). Defaults to 0 (Track 1).",
+            "description": (
+                "Ableton Live track index (0-indexed). Defaults to currently selected track "
+                "in Live if session sync is active, or 0."
+            ),
         },
         "clip_index": {
             "type": "integer",
             "minimum": 0,
-            "default": 0,
-            "description": "Ableton Live clip slot index (0-indexed). Defaults to 0 (Slot 1).",
+            "description": (
+                "Ableton Live clip slot index (0-indexed). Defaults to currently selected clip slot "
+                "in Live if session sync is active, or 0."
+            ),
         },
         "fire": {
             "type": "boolean",
             "default": True,
             "description": "Whether to immediately launch/play the clip in Ableton after injecting.",
+        },
+        "auto_sync": {
+            "type": "boolean",
+            "default": True,
+            "description": (
+                "When true, automatically synchronizes tempo, time signature, track, and clip slot "
+                "from the active Ableton Live session when those parameters are omitted."
+            ),
         },
     },
 }
@@ -322,18 +345,28 @@ async def list_tools() -> list[Tool]:
             inputSchema=GENERATE_MIDI_PROGRESSION_SCHEMA,
         ),
         Tool(
+            name="get_ableton_session_state",
+            description=(
+                "Query active Ableton Live session state via AbletonOSC. Returns connection status, "
+                "current tempo (BPM), time signature, active/selected track index, active/selected "
+                "clip slot (scene) index, and session key/scale if configured in Live."
+            ),
+            inputSchema=GET_ABLETON_SESSION_STATE_SCHEMA,
+        ),
+        Tool(
             name="send_to_ableton",
             description=(
                 "Directly inject a MIDI chord progression and groove into an active Ableton Live "
                 "track and clip slot using AbletonOSC. Eliminates manual file exports and drag-and-drop. "
-                "Creates the clip, writes all voice-led notes, and optionally triggers playback."
+                "Automatically synchronizes with the active session tempo and currently selected track/slot "
+                "when omitted. Creates the clip, writes all voice-led notes, and optionally triggers playback."
             ),
             inputSchema=SEND_TO_ABLETON_SCHEMA,
         ),
         Tool(
             name="stream_to_midi_port",
             description=(
-                "Stream notes in real-time to a macOS CoreMIDI virtual port ('Banjo') or hardware port. "
+                "Stream notes in real-time to a macOS CoreMIDI virtual port ('Midison') or hardware port. "
                 "Allows auditioning progressions through an armed Ableton Live VST track live with zero latency."
             ),
             inputSchema=STREAM_TO_MIDI_PORT_SCHEMA,
@@ -478,17 +511,68 @@ def _build_generation_request(arguments: dict) -> GenerationRequest:
     )
 
 
+def handle_get_ableton_session_state(arguments: dict) -> dict:
+    """Query live session state and return structured context."""
+    timeout = float(arguments.get("timeout", 0.3))
+    client = AbletonClient()
+    state = client.query_session_state(timeout=timeout)
+    return {
+        "connected": state.connected,
+        "tempo": state.tempo,
+        "time_signature": state.time_signature,
+        "signature_numerator": state.signature_numerator,
+        "signature_denominator": state.signature_denominator,
+        "selected_track": state.selected_track,
+        "selected_scene": state.selected_scene,
+        "root_note": state.root_note,
+        "scale_name": state.scale_name,
+        "key_name": state.key_name,
+    }
+
+
 def handle_send_to_ableton(arguments: dict) -> dict:
     """Inject a progression directly into Ableton Live via AbletonOSC."""
-    request = _build_generation_request(arguments)
+    client = AbletonClient()
+    auto_sync = bool(arguments.get("auto_sync", True))
+    session_synced = False
+    session_state = None
+
+    if auto_sync and (
+        "bpm" not in arguments
+        or arguments.get("bpm") is None
+        or "track_index" not in arguments
+        or arguments.get("track_index") is None
+        or "clip_index" not in arguments
+        or arguments.get("clip_index") is None
+    ):
+        session_state = client.query_session_state()
+        if getattr(session_state, "connected", False) is True:
+            session_synced = True
+            if "bpm" not in arguments or arguments["bpm"] is None:
+                arguments["bpm"] = int(round(session_state.tempo))
+            if "time_signature" not in arguments or arguments["time_signature"] is None:
+                arguments["time_signature"] = session_state.time_signature
+            if "track_index" not in arguments or arguments["track_index"] is None:
+                arguments["track_index"] = session_state.selected_track
+            if "clip_index" not in arguments or arguments["clip_index"] is None:
+                arguments["clip_index"] = session_state.selected_scene
+
+    # Defaults if still unassigned
+    if "bpm" not in arguments or arguments["bpm"] is None:
+        arguments["bpm"] = 120
     track_index = int(arguments.get("track_index", 0))
     clip_index = int(arguments.get("clip_index", 0))
     fire = bool(arguments.get("fire", True))
 
-    client = AbletonClient()
+    request = _build_generation_request(arguments)
+
     result = client.inject_progression(
-        request, track_index=track_index, clip_index=clip_index, fire=fire
+        request, track_index=track_index, clip_index=clip_index, fire=fire, sync_session=False
     )
+    result["session_synced"] = session_synced
+    if session_state and getattr(session_state, "connected", False) is True:
+        result["session_tempo"] = session_state.tempo
+        result["session_time_signature"] = session_state.time_signature
 
     # Also generate the file to disk so user has the sidecar/backup
     output_dir = config.get_output_directory()
@@ -543,6 +627,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     logger.info("tool call: %s args=%s", name, list(arguments.keys()))
     if name == "generate_midi_progression":
         result = handle_generate_midi_progression(arguments)
+    elif name == "get_ableton_session_state":
+        result = handle_get_ableton_session_state(arguments)
     elif name == "set_output_directory":
         result = handle_set_output_directory(arguments)
     elif name == "send_to_ableton":

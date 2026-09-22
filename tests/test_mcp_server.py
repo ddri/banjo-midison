@@ -231,6 +231,7 @@ def test_list_tools_returns_all_tools():
     names = {t.name for t in tools}
     assert names == {
         "generate_midi_progression",
+        "get_ableton_session_state",
         "set_output_directory",
         "send_to_ableton",
         "stream_to_midi_port",
@@ -381,6 +382,92 @@ def test_handle_send_to_ableton(isolated_config_dir, tmp_path):
     assert res["status"] == "success"
     assert res["track_index"] == 1
     assert "file_path" in res
+
+
+def test_handle_get_ableton_session_state():
+    from unittest.mock import MagicMock, patch
+    from midison.ableton import AbletonSessionState
+
+    mock_client = MagicMock()
+    mock_client.query_session_state.return_value = AbletonSessionState(
+        connected=True,
+        tempo=132.0,
+        signature_numerator=3,
+        signature_denominator=4,
+        selected_track=1,
+        selected_scene=2,
+        root_note=7,  # G
+        scale_name="Minor",
+    )
+
+    with patch("midison.mcp_server.AbletonClient", return_value=mock_client):
+        res = mcp_server.handle_get_ableton_session_state({})
+
+    assert res["connected"] is True
+    assert res["tempo"] == 132.0
+    assert res["time_signature"] == "3/4"
+    assert res["selected_track"] == 1
+    assert res["selected_scene"] == 2
+    assert res["key_name"] == "G"
+    assert res["scale_name"] == "Minor"
+
+
+def test_call_tool_get_ableton_session_state():
+    from unittest.mock import MagicMock, patch
+    from midison.ableton import AbletonSessionState
+
+    mock_client = MagicMock()
+    mock_client.query_session_state.return_value = AbletonSessionState(connected=False)
+
+    with patch("midison.mcp_server.AbletonClient", return_value=mock_client):
+        content = asyncio.run(mcp_server.call_tool("get_ableton_session_state", {}))
+
+    assert len(content) == 1
+    data = json.loads(content[0].text)
+    assert data["connected"] is False
+    assert data["tempo"] == 120.0
+
+
+def test_handle_send_to_ableton_auto_sync(isolated_config_dir, tmp_path):
+    config.set_output_directory(tmp_path / "out")
+    from unittest.mock import MagicMock, patch
+    from midison.ableton import AbletonSessionState
+
+    mock_client = MagicMock()
+    mock_client.query_session_state.return_value = AbletonSessionState(
+        connected=True,
+        tempo=128.0,
+        signature_numerator=4,
+        signature_denominator=4,
+        selected_track=3,
+        selected_scene=5,
+    )
+    mock_client.inject_progression.return_value = {
+        "status": "success",
+        "track_index": 3,
+        "clip_index": 5,
+        "total_beats": 4.0,
+        "notes_count": 4,
+        "chords": ["I"],
+        "fired": True,
+    }
+
+    with patch("midison.mcp_server.AbletonClient", return_value=mock_client):
+        # Omit bpm, track_index, and clip_index
+        res = mcp_server.handle_send_to_ableton({
+            "key_center": "C",
+            "scale_type": "major",
+            "chords": [{"numeral": "I", "duration_beats": 4.0}],
+        })
+
+    assert res["status"] == "success"
+    assert res["track_index"] == 3
+    assert res["clip_index"] == 5
+    assert res["session_synced"] is True
+    assert res["session_tempo"] == 128.0
+    assert "file_path" in res
+    assert Path(res["file_path"]).exists()
+
 
 
 def test_handle_stream_to_midi_port(isolated_config_dir, tmp_path):
